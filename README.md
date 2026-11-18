@@ -4,6 +4,17 @@ Guided Power BI workflows from data sources to trusted decisions: model design, 
 
 PBIX/PBIT binaries are never modified. Live Desktop and Fabric access are read-only. Every result is labeled by its evidence: local, live, snapshot, heuristic, or draft.
 
+## Install
+
+**Claude Code:**
+
+```
+/plugin marketplace add rweisssieker-xp/claude-powerbi-plugin
+/plugin install pbi-workbench@pbi-workbench
+```
+
+**Claude app (chat):** download [pbi-workbench.plugin](https://github.com/rweisssieker-xp/claude-powerbi-plugin/raw/dist/pbi-workbench.plugin) and open it in Claude to install.
+
 ## Quick start
 
 | Command | What you get |
