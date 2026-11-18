@@ -47,4 +47,31 @@ Describe 'Scripts on a real PBIP/TMDL export' {
         Test-Path -LiteralPath (Join-Path $pbipPath 'measure-expectations.json') | Should Be $false
         Test-Path -LiteralPath (Join-Path $out 'measure-expectations.template.json') | Should Be $true
     }
+
+    It 'returns an empty findings list (not null) for a clean model, so plans get no empty items' {
+        $clean = Join-Path $pluginRoot 'tmp/pester-clean-model/Clean.SemanticModel/definition/tables'
+        New-Item -ItemType Directory -Force -Path $clean | Out-Null
+        Set-Content -LiteralPath (Join-Path $clean 'Sales.tmdl') -Encoding UTF8 -Value "table Sales`n`n`t/// Revenue.`n`tmeasure Revenue = SUM(Sales[Amount])`n`t`tformatString: #,0`n"
+        $root = Join-Path $pluginRoot 'tmp/pester-clean-model'
+        $scanJson = & (Join-Path $scriptsPath 'Invoke-PowerBIInsightScan.ps1') -Path $root -Json
+        $scanJson | Should Not Match '"Findings":\s*null'
+        $plan = & (Join-Path $scriptsPath 'New-PowerBIRefactorPlan.ps1') -Path $root -Json | ConvertFrom-Json
+        @($plan.items | Where-Object { -not $_.Title }).Count | Should Be 0
+    }
+
+    It 'flags only camelCase names as technical in Copilot readiness' {
+        $result = & (Join-Path $scriptsPath 'Test-PowerBICopilotReadiness.ps1') -Path $pbipPath -Json | ConvertFrom-Json
+        @($result.findings | Where-Object { $_.type -eq 'Technical measure name' -and $_.source -eq 'Total Sales' }).Count | Should Be 0
+    }
+
+    It 'renders top risks as text in the executive trust brief' {
+        $markdown = & (Join-Path $scriptsPath 'New-PowerBIExecutiveTrustBrief.ps1') -Path $pbipPath | Out-String
+        $markdown | Should Not Match 'System\.Object\[\]'
+    }
+
+    It 'does not treat a Warn trust gate or Strong PBIP readiness as blocking service findings' {
+        $scan = & (Join-Path $scriptsPath 'New-PowerBIServiceScanner.ps1') -Path $pbipPath -Json | ConvertFrom-Json
+        @($scan.findings | Where-Object { $_.title -like 'PBIP readiness is Strong*' }).Count | Should Be 0
+        @($scan.findings | Where-Object { $_.title -eq 'Trust gate is Warn' -and $_.severity -eq 'High' }).Count | Should Be 0
+    }
 }

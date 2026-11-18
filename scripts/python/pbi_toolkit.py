@@ -840,7 +840,12 @@ def scan(root: Path, model: Model) -> dict:
     if uses_time_intel and model.partitions and not any((t.get("dataCategory") or "").lower() == "time" for t in model.tables.values()):
         fs.append(finding("Low", "Time Intelligence", "No table marked as date table",
                           "Mark the governed date table (dataCategory Time) so time-intelligence functions behave predictably.", ".", "py.model.date-table"))
-    fs += report_findings(model, model.report.get("file", ".") if model.report else ".")
+    report_src = "."
+    if model.report:
+        report_src = model.report.get("file") or next((d.name for d in sorted(root.glob("*.Report")) if d.is_dir()), None) \
+            if root.is_dir() else root.name
+        report_src = report_src or "report"
+    fs += report_findings(model, report_src)
     has_text_model = bool(model.formats & {"tmdl", "bim", "dax", "pq", "pbix-model"})
     if not has_text_model and model.report and model.report.get("pageCount"):
         fs.append(finding("Medium", "Inspectability", "Semantic model not inspected",
@@ -914,14 +919,21 @@ def catalog(root: Path, model: Model) -> dict:
 def best_practices(root: Path, model: Model, cat: dict, sc: dict, st: dict) -> dict:
     rules = load_rules("powerbi-trust-rules.json", {"bestPractices": {}}).get("bestPractices", {})
     fs = []
+    # Governance gaps once per rule with the affected measures (same as Test-PowerBIModelBestPractices.ps1),
+    # so the size of the model does not drive the score to 0.
+    total = len(cat["metrics"])
+    no_owner = [m["name"] for m in cat["metrics"] if "TODO" in m["owner"]]
+    no_def = [m["name"] for m in cat["metrics"] if "TODO" in m["businessDefinition"]]
+    if rules.get("requireMetricOwner", True) and no_owner:
+        fs.append({"severity": "Medium", "category": "Metric Governance", "source": f"{len(no_owner)} of {total} measures",
+                   "message": "Metric owner is missing: " + ", ".join(no_owner) + ".",
+                   "recommendation": "Assign a business or BI owner (TMDL: annotation Owner = <name>) before release."})
+    if rules.get("requireBusinessDefinition", True) and no_def:
+        fs.append({"severity": "Medium", "category": "Metric Governance", "source": f"{len(no_def)} of {total} measures",
+                   "message": "Business definition is missing: " + ", ".join(no_def) + ".",
+                   "recommendation": "Add a description (TMDL: /// line above the measure) with business meaning, grain, and accepted filters."})
     for m in cat["metrics"]:
         e = strip_comments(m["expression"])
-        if rules.get("requireMetricOwner", True) and "TODO" in m["owner"]:
-            fs.append({"severity": "Medium", "category": "Metric Governance", "source": m["name"], "message": "Metric owner is missing.",
-                       "recommendation": "Assign a business or BI owner before release (TMDL: annotation Owner = <name>)."})
-        if rules.get("requireBusinessDefinition", True) and "TODO" in m["businessDefinition"]:
-            fs.append({"severity": "Medium", "category": "Metric Governance", "source": m["name"], "message": "Business definition is missing.",
-                       "recommendation": "Document business meaning, grain, and accepted filters (TMDL: /// description)."})
         if rules.get("discourageVolatileTimeFunctions", True) and re.search(r"(?i)\bTODAY\s*\(|\bNOW\s*\(", e):
             fs.append({"severity": "Medium", "category": "DAX Determinism", "source": m["name"], "message": "Volatile date/time function detected.",
                        "recommendation": "Use a governed date table or refresh parameter."})
@@ -960,7 +972,10 @@ def summary(root: Path, model: Model) -> dict:
 
 def kpi_trust(cat: dict, deps: dict) -> dict:
     w = load_rules("powerbi-trust-rules.json", {}).get("weights", {})
-    down = {i["measure"]: i["impactCount"] for i in deps["impact"]}
+    # Direct dependents, like New-PowerBIKpiTrustScore.ps1 (the impact list in the dependency graph is transitive).
+    down: dict[str, int] = {}
+    for e in deps["edges"]:
+        down[e["to"]] = down.get(e["to"], 0) + 1
     metrics = []
     for m in cat["metrics"]:
         score, ded = 100, []
@@ -981,7 +996,7 @@ def kpi_trust(cat: dict, deps: dict) -> dict:
                         "owner": m["owner"], "businessDefinition": m["businessDefinition"],
                         "releaseUse": "Approved candidate after business sign-off." if score >= 80 else
                         ("Use with warning and validation note." if score >= 60 else "Do not use for executive release without remediation.")})
-    overall = int(sum(x["trustScore"] for x in metrics) / len(metrics)) if metrics else None
+    overall = int(round(sum(x["trustScore"] for x in metrics) / len(metrics))) if metrics else None
     return {"schema": "codex.powerbi.kpiTrustScore.v1", "generated": now(), "evidence": EVIDENCE, "metricCount": len(metrics),
             "overallTrustScore": overall, "metrics": sorted(metrics, key=lambda x: (x["trustScore"], x["name"]))}
 

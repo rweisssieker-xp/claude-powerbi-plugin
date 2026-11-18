@@ -13,11 +13,9 @@ $freshness = & (Join-Path $scriptRoot 'Test-PowerBIDataFreshnessLineageGate.ps1'
 $rls = & (Join-Path $scriptRoot 'New-PowerBIRlsTrustReview.ps1') -Path $Path -Json | ConvertFrom-Json
 
 $decision = if ($methodology.assessment -eq 'NeedsRevision' -or $freshness.status -eq 'Blocked' -or $rls.status -eq 'Blocked') { 'No-Go' } elseif ($methodology.assessment -eq 'ShareWithCaveats' -or $freshness.status -eq 'Warn' -or $trust.overallTrustScore -lt 70) { 'Conditional Go' } else { 'Go' }
-$topRisks = @(
-    @($methodology.findings | Select-Object -First 3 | ForEach-Object { [pscustomobject]@{ area = 'Methodology'; severity = $_.severity; message = $_.message } }),
-    @($freshness.findings | Select-Object -First 3 | ForEach-Object { [pscustomobject]@{ area = 'FreshnessLineage'; severity = $_.severity; message = $_.message } }),
-    @($rls.findings | Select-Object -First 3 | ForEach-Object { [pscustomobject]@{ area = 'Security'; severity = $_.severity; message = $_.message } })
-)
+$topRisks = @(@($methodology.findings | Select-Object -First 3 | ForEach-Object { [pscustomobject]@{ area = 'Methodology'; severity = $_.severity; message = $_.message } })) +
+    @(@($freshness.findings | Select-Object -First 3 | ForEach-Object { [pscustomobject]@{ area = 'FreshnessLineage'; severity = $_.severity; message = $_.message } })) +
+    @(@($rls.findings | Select-Object -First 3 | ForEach-Object { [pscustomobject]@{ area = 'Security'; severity = $_.severity; message = $_.message } }))
 
 $markdownLines = @(
     '# Power BI Executive Trust Brief',

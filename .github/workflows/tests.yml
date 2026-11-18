@@ -61,3 +61,29 @@ jobs:
           if (-not (Select-String -Path "$proj/Sales.SemanticModel/definition/tables/Sales.tmdl" -SimpleMatch "measure 'CI Check' = DIVIDE([Total Sales], 2)" -Quiet)) { throw 'Measure was not written.' }
           ./scripts/Undo-PowerBIPBIPApply.ps1 -PbipPath $proj -Apply | Out-Host
           if (Select-String -Path "$proj/Sales.SemanticModel/definition/tables/Sales.tmdl" -SimpleMatch "CI Check" -Quiet) { throw 'Undo did not restore the file.' }
+
+  windows-pwsh:
+    name: Windows (PowerShell 7)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Pester 4
+        shell: pwsh
+        run: Install-Module Pester -RequiredVersion 4.10.1 -Force -SkipPublisherCheck -Scope CurrentUser
+      - name: PowerShell self-test, golden baselines and Pester
+        shell: pwsh
+        run: |
+          Import-Module Pester -RequiredVersion 4.10.1
+          ./tests/Run-PowerBITests.ps1
+      - name: Report page through the PowerShell wrapper
+        shell: pwsh
+        run: |
+          $proj = Join-Path $env:RUNNER_TEMP 'pbip-page'
+          Copy-Item -Recurse examples/pbip-tmdl-model $proj
+          $r = ./scripts/Add-PowerBIPBIPReportPage.ps1 -PbipPath $proj -PageName 'CI Page' -Measures 'Total Sales' -Apply -Json | ConvertFrom-Json
+          if (-not $r.applied -or -not (Test-Path $r.targetFullPath)) { throw 'Report page was not written.' }
+          ./scripts/Undo-PowerBIPBIPApply.ps1 -PbipPath $proj -Apply | Out-Host
+          if (Test-Path $r.targetFullPath) { throw 'Undo did not remove the page.' }

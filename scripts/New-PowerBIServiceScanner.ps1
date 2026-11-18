@@ -18,9 +18,11 @@ $findings.Add([pscustomobject]@{ severity = 'Medium'; category = 'Ownership'; ti
 $findings.Add([pscustomobject]@{ severity = 'Medium'; category = 'Refresh'; title = 'Refresh and gateway health not yet proven'; detail = 'Collect refresh history, gateway mapping, and credential owner before release.' })
 $findings.Add([pscustomobject]@{ severity = 'Low'; category = 'Governance'; title = 'Sensitivity and endorsement need tenant validation'; detail = 'Verify labels, certification, app audience, and sharing scope in the service.' })
 if ($gate.decision -ne 'Go') {
-    $findings.Add([pscustomobject]@{ severity = 'High'; category = 'Release Gate'; title = "Trust gate is $($gate.decision)"; detail = 'Resolve local trust gate findings before service rollout.' })
+    # No-Go blocks a service rollout; Warn needs documented caveats but does not block.
+    $gateSeverity = if ($gate.decision -eq 'No-Go') { 'High' } else { 'Medium' }
+    $findings.Add([pscustomobject]@{ severity = $gateSeverity; category = 'Release Gate'; title = "Trust gate is $($gate.decision)"; detail = 'Resolve local trust gate findings before service rollout.' })
 }
-if ($structure.readiness -ne 'Ready') {
+if ($structure.readiness -notin @('Ready', 'Strong')) {
     $findings.Add([pscustomobject]@{ severity = 'Medium'; category = 'Source Control'; title = "PBIP readiness is $($structure.readiness)"; detail = 'Prefer PBIP/TMDL source before managed service deployment.' })
 }
 
