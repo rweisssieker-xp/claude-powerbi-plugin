@@ -37,11 +37,14 @@ catch {
 
 if (-not $SkipPester) {
     try {
-        if (-not (Get-Module -ListAvailable -Name Pester)) {
+        if (-not (Get-Module -Name Pester) -and -not (Get-Module -ListAvailable -Name Pester)) {
             throw 'Pester is not installed.'
         }
-        Invoke-Pester $pesterPath | Out-Host
-        Add-TestSuiteResult -Name 'Pester' -Passed $true -Detail $pesterPath
+        $pester = Invoke-Pester $pesterPath -PassThru
+        if ($pester.FailedCount -gt 0) {
+            throw "$($pester.FailedCount) of $($pester.TotalCount) Pester tests failed."
+        }
+        Add-TestSuiteResult -Name 'Pester' -Passed $true -Detail "$($pester.PassedCount) of $($pester.TotalCount) passed"
     }
     catch {
         Add-TestSuiteResult -Name 'Pester' -Passed $false -Detail $_.Exception.Message

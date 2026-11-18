@@ -1,0 +1,63 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    name: Linux (Python 3, PowerShell 7)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Python tests
+        run: python -m unittest discover -s tests/python -v
+      - name: Install Pester 4
+        shell: pwsh
+        run: Install-Module Pester -RequiredVersion 4.10.1 -Force -SkipPublisherCheck -Scope CurrentUser
+      - name: PowerShell self-test, golden baselines and Pester
+        shell: pwsh
+        run: |
+          Import-Module Pester -RequiredVersion 4.10.1
+          ./tests/Run-PowerBITests.ps1
+      - name: Plugin and documentation checks
+        shell: pwsh
+        run: |
+          ./scripts/Test-PowerBIPlugin.ps1
+          ./scripts/Test-PowerBIDocumentationCoverage.ps1
+
+  windows:
+    name: Windows (Windows PowerShell 5.1)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Python tests
+        run: python -m unittest discover -s tests/python -v
+      - name: Install Pester 4
+        shell: powershell
+        run: Install-Module Pester -RequiredVersion 4.10.1 -Force -SkipPublisherCheck -Scope CurrentUser
+      - name: PowerShell self-test, golden baselines and Pester
+        shell: powershell
+        run: |
+          Import-Module Pester -RequiredVersion 4.10.1
+          ./tests/Run-PowerBITests.ps1
+      - name: Apply engine through the PowerShell wrappers
+        shell: powershell
+        run: |
+          $proj = Join-Path $env:RUNNER_TEMP 'pbip'
+          Copy-Item -Recurse examples/pbip-tmdl-model $proj
+          ./scripts/Apply-PowerBIPBIPMeasureDraft.ps1 -PbipPath $proj -TableName Sales -MeasureName 'CI Check' -Expression 'DIVIDE([Total Sales], 2)' -FormatString '#,0' -Apply | Out-Host
+          if (-not (Select-String -Path "$proj/Sales.SemanticModel/definition/tables/Sales.tmdl" -SimpleMatch "measure 'CI Check' = DIVIDE([Total Sales], 2)" -Quiet)) { throw 'Measure was not written.' }
+          ./scripts/Undo-PowerBIPBIPApply.ps1 -PbipPath $proj -Apply | Out-Host
+          if (Select-String -Path "$proj/Sales.SemanticModel/definition/tables/Sales.tmdl" -SimpleMatch "CI Check" -Quiet) { throw 'Undo did not restore the file.' }
