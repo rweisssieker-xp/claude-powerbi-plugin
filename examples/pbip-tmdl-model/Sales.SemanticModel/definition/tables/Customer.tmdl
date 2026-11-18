@@ -1,0 +1,23 @@
+table Customer
+	lineageTag: 6f1c0000-0000-0000-0000-000000000030
+
+	column CustomerKey
+		dataType: int64
+		lineageTag: 6f1c0000-0000-0000-0000-000000000031
+		summarizeBy: none
+		sourceColumn: CustomerKey
+
+	column IsActive
+		dataType: boolean
+		lineageTag: 6f1c0000-0000-0000-0000-000000000032
+		summarizeBy: none
+		sourceColumn: IsActive
+
+	partition Customer = m
+		mode: import
+		source =
+				let
+				    Source = Sql.Database("sql-prod", "Sales"),
+				    Customer = Source{[Schema="dbo",Item="Customer"]}[Data]
+				in
+				    Customer

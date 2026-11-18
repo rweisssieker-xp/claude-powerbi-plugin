@@ -1,0 +1,14 @@
+table Date
+	dataCategory: Time
+	lineageTag: 6f1c0000-0000-0000-0000-000000000040
+
+	column Date
+		dataType: dateTime
+		isKey
+		lineageTag: 6f1c0000-0000-0000-0000-000000000041
+		summarizeBy: none
+		sourceColumn: Date
+
+	partition Date = calculated
+		mode: import
+		source = CALENDAR(DATE(2020, 1, 1), DATE(2027, 12, 31))

@@ -1,0 +1,55 @@
+# Power BI Desktop Claude Plugin Documentation
+
+This documentation describes the local Claude plugin for Power BI Desktop and Fabric-oriented Power BI engineering work.
+
+## Start Here
+
+- [First 10 minutes](start-here.md): role-based first action, one suitable workflow, and how to interpret evidence labels.
+- [Getting started](getting-started.md): install path, first checks, first review run.
+- [Role-based entry points](role-based-entry-points.md): focused starts for analysts, executives, Power BI developers, and release owners.
+- [New model wizard](start-here.md): PBIP-first design packs for building a governed model from a business goal.
+- [Next-generation USPs](next-gen-usps.md): FinOps, Copilot regression, Direct Lake readiness, data-product SLOs, capacity proof, and decision traces.
+- [Value proposition and USPs](value-proposition.md): business value, differentiators, best-fit use cases, and positioning.
+- [Workflows](workflows.md): practical end-to-end flows for model review, live Desktop review, PBIP authoring, release gates, and Fabric read-only snapshot QA.
+- [Script catalog](script-catalog.md): command families and when to use each script.
+- [Testing](testing.md): local smoke tests, Pester tests, and CI layout.
+- [Git hooks](git-hooks.md): local pre-commit and pre-push checks for manifests, generated outputs, documentation coverage, and golden baselines.
+
+## Core Capabilities
+
+- [Unified review](unified-review.md): one review package that combines offline PBIP/project review, live Desktop when available, native parity, external-tool awareness, and AI outputs.
+- [Max AI review](max-ai-review.md): the high-end AI review pack with 38 USP workflows and 39 artifacts.
+- [AI USP workflows](ai-usp-workflows.md): detailed operating model for the AI differentiators.
+- [Enterprise AI features](enterprise-ai-features.md): service scanner, release candidate pack, risk heatmap, semantic tests, performance/VertiPaq imports, and change journal.
+- [Architecture](architecture.md): local-first design, read-only live access, PBIP write gates, and generated artifacts.
+- [Skills and MCP surface](skills-and-mcp.md): documented Claude skills, current non-MCP boundary, and future MCP documentation requirements.
+- [Feature maturity](feature-maturity.md): separates implemented, live-read, snapshot-backed, draft/apply, metadata-only, synthetic, and heuristic-simulation capabilities.
+- [PBIP Apply Engine](pbip-apply-engine.md): how draft generation, apply scripts, manifests, and rollback guidance work.
+
+## Power BI Desktop, Fabric, And Governance
+
+- [Live Desktop](live-desktop.md): local XMLA/ADOMD discovery, live DMV/DAX checks, and limitations.
+- [Fabric live read-only and planning](fabric.md): token-file access plans, GET-only snapshot import, Fabric QA packs, readiness plans, and what the plugin does not do.
+- [Governance](governance.md): rule files, trust gates, golden baselines, data contracts, and memory/rule mining.
+- [Business process data quality](business-process-data-quality.md): local Power BI and ERP export rule packs for standard enterprise processes.
+- [External Tool installation](external-tool-installation.md): register the Claude Power BI Workbench as a Power BI External Tool.
+- [Golden baselines](golden-baselines.md): deterministic regression checks for semantic model changes.
+
+## Operations
+
+- [Privacy](privacy.md): data boundaries and local execution model.
+- [Release checklist](release-checklist.md): what to verify before publishing plugin changes.
+- [v3.0.0 release notes](release-notes-v3.0.0.md): GitHub release text and verification summary.
+- [Claude Marketplace submission draft](codex-marketplace-submission-v3.0.0.md): listing copy, install command, conversation starters, and publishing checklist.
+- [Example output](example-output.md): expected generated artifacts.
+- [Troubleshooting](troubleshooting.md): common failures and fixes.
+
+## Repository Map
+
+- `./.claude-plugin/plugin.json`: plugin manifest.
+- `./skills/powerbi-desktop/SKILL.md`: Claude skill instructions.
+- `./scripts`: PowerShell command surface.
+- `./rules`: governance, trust, and golden-baseline rule JSON.
+- `./examples`: sample PBIP-style projects used by tests and examples.
+- `./tests`: test entrypoint and Pester specs.
+- `docs`: user and maintainer documentation.

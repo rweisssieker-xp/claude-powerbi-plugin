@@ -1,0 +1,13 @@
+relationship 4b1f0c2e-0001-4a6e-9a51-000000000001
+	fromColumn: Sales.CustomerKey
+	toColumn: Customer.CustomerKey
+
+relationship 4b1f0c2e-0002-4a6e-9a51-000000000002
+	crossFilteringBehavior: bothDirections
+	fromColumn: Sales.OrderDate
+	toColumn: Date.Date
+
+relationship 4b1f0c2e-0003-4a6e-9a51-000000000003
+	isActive: false
+	fromColumn: Sales.ShipDate
+	toColumn: Date.Date

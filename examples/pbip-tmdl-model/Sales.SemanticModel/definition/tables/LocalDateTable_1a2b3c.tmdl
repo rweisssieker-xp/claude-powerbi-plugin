@@ -1,0 +1,16 @@
+table LocalDateTable_1a2b3c
+	isHidden
+	showAsVariationsOnly
+	lineageTag: 6f1c0000-0000-0000-0000-000000000050
+
+	column Date
+		dataType: dateTime
+		isHidden
+		lineageTag: 6f1c0000-0000-0000-0000-000000000051
+		summarizeBy: none
+		isNameInferred
+		sourceColumn: [Date]
+
+	partition LocalDateTable_1a2b3c = calculated
+		mode: import
+		source = Calendar(Date(Year(MIN('Sales'[OrderDate])), 1, 1), Date(Year(MAX('Sales'[OrderDate])), 12, 31))

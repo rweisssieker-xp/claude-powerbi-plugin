@@ -1,0 +1,4 @@
+role 'Region Manager'
+	modelPermission: read
+
+	tablePermission Customer = Customer[IsActive] = TRUE()

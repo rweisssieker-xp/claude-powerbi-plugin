@@ -1,0 +1,8 @@
+model Model
+	culture: de-DE
+	defaultPowerBIDataSourceVersion: powerBI_V3
+
+ref table Sales
+ref table Customer
+ref table Date
+ref table LocalDateTable_1a2b3c

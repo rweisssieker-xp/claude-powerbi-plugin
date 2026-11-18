@@ -1,0 +1,18 @@
+# Release Checklist
+
+Before tagging a stable release:
+
+- Enable local hooks with `.\scripts\Install-GitHooks.ps1` and confirm `git config --get core.hooksPath` returns `.githooks`.
+- Run `.\tests\Run-PowerBITests.ps1`.
+- Run `.\scripts\Test-PowerBIDocumentationCoverage.ps1` and resolve missing script documentation or stale claims.
+- Run `.\scripts\Invoke-PowerBIMaxAIReview.ps1 -Path .\examples\sample-model -OutputDirectory .\powerbi-max-ai-review` for a full AI artifact check before release.
+- Run `.\scripts\New-PowerBIReleaseCandidatePack.ps1 -Path .\examples\sample-model -OutputDirectory .\powerbi-release-candidate -IncludeAnalyticalQa` and review the generated gate summary, methodology validation, metric diagnosis, and analytical release report.
+- Run the Fabric snapshot pack when Fabric evidence is part of the release: `.\scripts\New-PowerBIReleaseCandidatePack.ps1 -Path .\examples\sample-model -OutputDirectory .\powerbi-release-candidate -SnapshotDirectory .\examples\fabric-snapshot\minimal -IncludeFabricLiveQa -IncludeFabricPortfolioQa -IncludeFabricDeploymentQa -IncludeFabricOperationsQa -IncludeFabricGovernanceQa -IncludeFabricExecutiveQa`.
+- Confirm Fabric v1 stayed read-only: no publish, promote, refresh trigger, rebind, delete, or endorsement write.
+- Run semantic tests with pending live checks treated as failures before release: `.\scripts\Invoke-PowerBISemanticTestRunner.ps1 -Path .\examples\sample-model -FailOnPending`.
+- Confirm PBIP roundtrip readiness with `Get-PowerBIPBIPStructure.ps1` and `New-PowerBIPBIXCompileWorkflow.ps1`; do not claim automated compile readiness when `pbi-tools` is missing or PBIP structure is incomplete.
+- Confirm generated review outputs are not staged.
+- Confirm `./.claude-plugin/plugin.json` parses.
+- Confirm `plugin.json` claims match the documented script catalog and do not contain stale numbered-USP wording or legacy semantic test runner schema names.
+- Confirm `CHANGELOG.md` has an entry for the release version.
+- Create and push a Git tag such as `v1.0.0`.

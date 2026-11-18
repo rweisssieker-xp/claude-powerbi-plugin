@@ -1,0 +1,4 @@
+CustomerKey,CustomerName,Region,IsActive
+1,Contoso GmbH,DACH,true
+2,Fabrikam AG,DACH,true
+3,Northwind Ltd,UK,false

@@ -1,0 +1,76 @@
+table Sales
+	lineageTag: 6f1c0000-0000-0000-0000-000000000010
+
+	/// Net invoiced revenue after discounts, in EUR.
+	measure 'Total Sales' = SUM(Sales[Amount])
+		formatString: #,0.00 €
+		displayFolder: Revenue
+		lineageTag: 6f1c0000-0000-0000-0000-000000000011
+
+		annotation Owner = Finance Controlling
+
+	measure 'Total Sales PY' =
+			CALCULATE(
+			    [Total Sales],
+			    SAMEPERIODLASTYEAR('Date'[Date])
+			)
+		formatString: #,0.00 €
+		lineageTag: 6f1c0000-0000-0000-0000-000000000012
+
+	measure 'Sales YoY %' = ([Total Sales] - [Total Sales PY]) / [Total Sales PY]
+		formatString: 0.0%
+		lineageTag: 6f1c0000-0000-0000-0000-000000000013
+
+	measure 'Active Customer Sales' =
+			CALCULATE(
+			    [Total Sales],
+			    FILTER(ALL(Customer), Customer[IsActive] = TRUE())
+			)
+		lineageTag: 6f1c0000-0000-0000-0000-000000000014
+
+	measure 'Sales by Ship Date' = CALCULATE([Total Sales], USERELATIONSHIP(Sales[ShipDate], 'Date'[Date]))
+		lineageTag: 6f1c0000-0000-0000-0000-000000000015
+
+	measure 'Days Since Last Order' = DATEDIFF(MAX(Sales[OrderDate]), TODAY(), DAY)
+		lineageTag: 6f1c0000-0000-0000-0000-000000000016
+
+	column Amount
+		dataType: decimal
+		formatString: #,0.00
+		lineageTag: 6f1c0000-0000-0000-0000-000000000020
+		summarizeBy: sum
+		sourceColumn: Amount
+
+	column CustomerKey
+		dataType: int64
+		isHidden
+		lineageTag: 6f1c0000-0000-0000-0000-000000000021
+		summarizeBy: none
+		sourceColumn: CustomerKey
+
+	column OrderDate
+		dataType: dateTime
+		lineageTag: 6f1c0000-0000-0000-0000-000000000022
+		summarizeBy: none
+		sourceColumn: OrderDate
+
+	column ShipDate
+		dataType: dateTime
+		lineageTag: 6f1c0000-0000-0000-0000-000000000023
+		summarizeBy: none
+		sourceColumn: ShipDate
+
+	column 'Order Year' = YEAR(Sales[OrderDate])
+		dataType: int64
+		lineageTag: 6f1c0000-0000-0000-0000-000000000024
+		summarizeBy: none
+
+	partition Sales = m
+		mode: import
+		source =
+				let
+				    Source = Csv.Document(File.Contents("C:\Data\sales.csv"), [Delimiter=";", Encoding=65001]),
+				    Promoted = Table.PromoteHeaders(Source, [PromoteAllScalars=true]),
+				    Typed = Table.TransformColumnTypes(Promoted, {{"Amount", type number}, {"OrderDate", type date}})
+				in
+				    Typed
