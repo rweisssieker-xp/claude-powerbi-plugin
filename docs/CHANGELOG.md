@@ -1,5 +1,16 @@
 # Changelog
 
+## 3.5.0 - 2026-11-18
+
+- **Calculation groups:** `pbi_apply.py calcgroup` and `Apply-PowerBIPBIPCalculationGroup.ps1` write a calculation group (items, name column sorted by a hidden Ordinal column, calculationGroup partition) and set `discourageImplicitMeasures`. `New-PowerBICalculationGroupDraft.ps1` produced invalid TMDL with raw PowerShell objects; it now writes the time-intelligence set (Current, Prior Year, YoY, YoY %, YTD) as valid TMDL, identical to the engine output.
+- **Content fixes in the main reports** (found by reading every report for the real Finoryx model):
+  - The insight scan returned `null` findings for a clean model, so the guided fix plan, refactor plan and executive narrative showed an empty item and "1 finding".
+  - Copilot readiness: a case-insensitive regex flagged every measure name as technical (score 0). Now only camelCase names; scored by share of measures; a description, not an owner, is what Copilot needs.
+  - Governance scorecard: shares instead of per-measure deductions; `TestCoverage` is now `TestPlanCoverage`, because it counts designed test drafts, not executed tests.
+  - Service scanner: a Warn trust gate counted as High and "PBIP readiness is Strong" was reported as a finding, which turned the freshness gate and the executive trust brief into No-Go. The brief also printed its risks as `System.Object[]`.
+  - Python review: governance findings grouped per rule, KPI trust uses direct dependents and rounds the overall score (now identical to the PowerShell results); report findings name the report instead of `.`.
+- **CI:** third job for PowerShell 7 on Windows, including the report page wrapper with undo. 32 Python tests, 69 Pester tests.
+
 ## 3.4.0 - 2026-11-18
 
 Every script was run against a real Power BI Desktop PBIP export (two tables, relationship, RLS role, calculated column and table, PBIR report with a custom visual). Fixes from that run:

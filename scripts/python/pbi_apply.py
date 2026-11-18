@@ -288,6 +288,57 @@ def cmd_table(p: Project, a) -> dict:
     return commit(p, a, "CalculatedTable", a.name, target, "replace" if exists else "insert", block, block, extra)
 
 
+def cmd_calcgroup(p: Project, a) -> dict:
+    """Calculation group table: items apply to SELECTEDMEASURE(). Sets discourageImplicitMeasures on the model."""
+    if not a.item:
+        raise SystemExit("Give at least one item: --item \"Name=DAX expression\" (repeatable).")
+    items, formats = [], {}
+    for spec in a.item:
+        name, sep, expr = spec.partition("=")
+        if not sep or not name.strip() or not expr.strip():
+            raise SystemExit(f"Item must look like Name=DAX expression: {spec!r}")
+        items.append((name.strip(), expr.strip()))
+    for spec in a.item_format or []:
+        name, sep, fmt = spec.partition("=")
+        if not sep:
+            raise SystemExit(f"Item format must look like Name=format expression: {spec!r}")
+        formats[name.strip()] = fmt.strip()
+    unknown = sorted(set(formats) - {n for n, _ in items})
+    if unknown:
+        raise SystemExit(f"--item-format names unknown items: {', '.join(unknown)}")
+    column = a.column_name or a.name
+    target = p.definition / "tables" / (re.sub(r'[\\/:*?"<>|]', "_", a.name) + ".tmdl")
+    exists = target.exists()
+    block = [f"table {q(a.name)}", "", "\tcalculationGroup"]
+    if a.precedence is not None:
+        block.append(f"\t\tprecedence: {a.precedence}")
+    for i, (name, expr) in enumerate(items):
+        block.append("")
+        block += object_with_expression("calculationItem", name, expr, "\t\t")
+        if name in formats:
+            block.append(f"\t\t\tformatStringDefinition = {formats[name]}")
+        block.append(f"\t\t\tordinal: {i}")
+    block += ["", f"\tcolumn {q(column)}", "\t\tdataType: string", "\t\tsummarizeBy: none", "\t\tsourceColumn: Name",
+              "\t\tsortByColumn: Ordinal", "", "\t\tannotation SummarizationSetBy = Automatic",
+              "", "\tcolumn Ordinal", "\t\tdataType: int64", "\t\tformatString: 0", "\t\tisHidden", "\t\tsummarizeBy: sum",
+              "\t\tsourceColumn: Ordinal", "", "\t\tannotation SummarizationSetBy = Automatic",
+              "", f"\tpartition {q(a.name)} = calculationGroup", "\t\tmode: import"]
+    extra = []
+    mt = read(p.model_tmdl())
+    changed = False
+    model_idx = next((i for i, l in enumerate(mt) if l.startswith("model ")), None)
+    if model_idx is not None and not any(l.strip() == "discourageImplicitMeasures" for l in mt):
+        mt = mt[:model_idx + 1] + ["\tdiscourageImplicitMeasures"] + mt[model_idx + 1:]
+        changed = True
+    refs = [i for i, l in enumerate(mt) if l.startswith("ref table ")]
+    if refs and not any(unq(l[len("ref table "):]) == a.name for l in mt if l.startswith("ref table ")):
+        mt = mt[:refs[-1] + 1] + [f"ref table {q(a.name)}"] + mt[refs[-1] + 1:]
+        changed = True
+    if changed:
+        extra.append((p.model_tmdl(), mt))
+    return commit(p, a, "CalculationGroup", a.name, target, "replace" if exists else "insert", block, block, extra)
+
+
 def cmd_relationship(p: Project, a) -> dict:
     ft, fc = col_ref(a.from_)
     tt, tc = col_ref(a.to)
@@ -391,10 +442,20 @@ def cmd_tmdl(p: Project, a) -> dict:
             raise SystemExit("Draft contains several children for an existing table; apply them one by one.")
         extra = []
         mt = read(p.model_tmdl())
+        changed = False
+        is_calc_group = any(l.strip() == "calculationGroup" for l in children)
+        model_idx = next((i for i, l in enumerate(mt) if l.startswith("model ")), None)
+        if is_calc_group and model_idx is not None and not any(l.strip() == "discourageImplicitMeasures" for l in mt):
+            mt = mt[:model_idx + 1] + ["\tdiscourageImplicitMeasures"] + mt[model_idx + 1:]
+            changed = True
         refs = [i for i, l in enumerate(mt) if l.startswith("ref table ")]
         if refs and not any(unq(l[len("ref table "):]) == table for l in mt if l.startswith("ref table ")):
-            extra.append((p.model_tmdl(), mt[:refs[-1] + 1] + [f"ref table {q(table)}"] + mt[refs[-1] + 1:]))
-        return commit(p, a, "CalculatedTable", table, target, "replace" if exists else "insert", raw[first:], raw[first:], extra)
+            mt = mt[:refs[-1] + 1] + [f"ref table {q(table)}"] + mt[refs[-1] + 1:]
+            changed = True
+        if changed:
+            extra.append((p.model_tmdl(), mt))
+        return commit(p, a, "CalculationGroup" if is_calc_group else "CalculatedTable", table, target,
+                      "replace" if exists else "insert", raw[first:], raw[first:], extra)
     if head.startswith("relationship "):
         body = "\n".join(raw[first:])
         fm = re.search(r"fromColumn:\s*(.+)", body)
@@ -526,7 +587,8 @@ def cmd_spec(p: Project, a) -> dict:
     command = spec.pop("command")
     defaults = {"format": None, "description": None, "folder": None, "data_type": "string", "column": [],
                 "both_directions": False, "inactive": False, "one_to_one": False, "backup": None,
-                "measure": [], "width": 1280, "height": 720, "table": None}
+                "measure": [], "width": 1280, "height": 720, "table": None,
+                "item": [], "item_format": [], "precedence": None, "column_name": None}
     ns = argparse.Namespace(**{**defaults, **{k.replace("-", "_"): v for k, v in spec.items()}}, apply=a.apply, pbip=a.pbip)
     if "from" in spec:
         ns.from_ = spec["from"]
@@ -540,7 +602,8 @@ def cmd_spec(p: Project, a) -> dict:
         tmp.write_text(spec["tmdl"], encoding="utf-8")
         ns.tmdl_file = str(tmp)
     fn = {"measure": cmd_measure, "column": cmd_column, "table": cmd_table, "relationship": cmd_relationship,
-          "role": cmd_role, "query": cmd_query, "tmdl": cmd_tmdl, "undo": cmd_undo, "page": cmd_page}[command]
+          "role": cmd_role, "query": cmd_query, "tmdl": cmd_tmdl, "undo": cmd_undo, "page": cmd_page,
+          "calcgroup": cmd_calcgroup}[command]
     return fn(p, ns)
 
 
@@ -615,6 +678,10 @@ def main(argv=None) -> int:
     s = add("query"); s.add_argument("--name", required=True); s.add_argument("--m-file", required=True)
     s = add("tmdl"); s.add_argument("--tmdl-file", required=True)
     s.add_argument("--table", help="target table for a draft that holds only a measure or column")
+    s = add("calcgroup"); s.add_argument("--name", required=True)
+    s.add_argument("--item", action="append", default=[], help="Name=DAX using SELECTEDMEASURE() (repeatable, in display order)")
+    s.add_argument("--item-format", action="append", default=[], help="Name=format string expression, e.g. 'YoY %%=\"0.0%%\"'")
+    s.add_argument("--precedence", type=int); s.add_argument("--column-name", help="name of the visible column (default: group name)")
     s = add("page"); s.add_argument("--name", required=True)
     s.add_argument("--measure", action="append", default=[], help="measure for a card visual (repeatable)")
     s.add_argument("--width", type=int, default=1280); s.add_argument("--height", type=int, default=720)
@@ -627,7 +694,8 @@ def main(argv=None) -> int:
         print(json.dumps(manifest(p), indent=2, ensure_ascii=False))
         return 0
     fn = {"measure": cmd_measure, "column": cmd_column, "table": cmd_table, "relationship": cmd_relationship,
-          "role": cmd_role, "query": cmd_query, "tmdl": cmd_tmdl, "spec": cmd_spec, "undo": cmd_undo, "page": cmd_page}[a.cmd]
+          "role": cmd_role, "query": cmd_query, "tmdl": cmd_tmdl, "spec": cmd_spec, "undo": cmd_undo, "page": cmd_page,
+          "calcgroup": cmd_calcgroup}[a.cmd]
     print(json.dumps(fn(p, a), indent=2, ensure_ascii=False))
     return 0
 

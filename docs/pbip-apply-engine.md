@@ -23,10 +23,13 @@ python3 -I scripts/python/pbi_apply.py relationship <PBIP> --from Sales.Customer
 python3 -I scripts/python/pbi_apply.py role         <PBIP> --name "EU only" --table Customer --filter 'Customer[Region] = "EU"' [--apply]
 python3 -I scripts/python/pbi_apply.py query        <PBIP> --name DimDate --m-file DimDate.pq [--apply]
 python3 -I scripts/python/pbi_apply.py tmdl         <PBIP> --tmdl-file draft.tmdl [--table Sales] [--apply]
+python3 -I scripts/python/pbi_apply.py calcgroup    <PBIP> --name "Time Intelligence" --item "Current=SELECTEDMEASURE()" --item "Prior Year=CALCULATE(SELECTEDMEASURE(), SAMEPERIODLASTYEAR('Date'[Date]))" [--item-format 'YoY %="0.0%"'] [--precedence 10] [--apply]
 python3 -I scripts/python/pbi_apply.py page         <PBIP> --name "KPI Overview" --measure "Total Sales" --measure "Sales YoY %" [--apply]
 python3 -I scripts/python/pbi_apply.py undo         <PBIP> [--backup <id>] [--apply]
 python3 -I scripts/python/pbi_apply.py history      <PBIP>
 ```
+
+`calcgroup` writes a calculation group table (items in display order, a name column sorted by a hidden Ordinal column, a `calculationGroup` partition) and sets `discourageImplicitMeasures` on the model, which Power BI requires for calculation groups. A TMDL draft that holds a calculation group (`tmdl`) gets the same model setting.
 
 `page` adds a report page in PBIR format (`<Name>.Report/definition/pages`) with one card visual per measure and appends it to `pageOrder`. The backup then also holds the report definition, and `undo` restores both. A draft with only a measure or column needs `--table`.
 
@@ -40,6 +43,7 @@ python3 -I scripts/python/pbi_apply.py history      <PBIP>
 .\scripts\Apply-PowerBIPBIPCalculatedColumnDraft.ps1 -PbipPath .\MyReport -TableName Sales -ColumnName "Sales Band" -Expression "…" -Apply
 .\scripts\Apply-PowerBIPBIPPowerQueryDraft.ps1      -PbipPath .\MyReport -QueryName DimDate -SourceKind DateTable -Apply
 .\scripts\Apply-PowerBIPBIPTmdlDraft.ps1            -PbipPath .\MyReport -Tmdl (Get-Content .\draft.tmdl -Raw) [-TableName Sales] -Apply
+.\scripts\Apply-PowerBIPBIPCalculationGroup.ps1      -PbipPath .\MyReport -DateColumn "'Date'[Date]" -Apply   # time-intelligence set; or -Items 'Name=DAX',...
 .\scripts\Add-PowerBIPBIPReportPage.ps1             -PbipPath .\MyReport -PageName 'KPI Overview' -Measures 'Total Sales','Sales YoY %' -Apply
 .\scripts\Undo-PowerBIPBIPApply.ps1                 -PbipPath .\MyReport [-BackupId <id>] -Apply
 .\scripts\Invoke-PowerBIPBIPApplyPlan.ps1           -PbipPath .\MyReport -OutputPath .\apply-plan.json

@@ -164,6 +164,26 @@ class ApplyEngine(unittest.TestCase):
         self.assertEqual(after, before)
         self.assertEqual(snapshot(self.proj), self.original)
 
+    def test_calcgroup_writes_table_flag_and_ref(self):
+        r = apply("calcgroup", self.proj, "--name", "Time Intelligence", "--column-name", "Time Calculation",
+                  "--item", "Current=SELECTEDMEASURE()", "--item", "Prior Year=CALCULATE(SELECTEDMEASURE(), SAMEPERIODLASTYEAR('Date'[Date]))",
+                  "--item", "YoY %=DIVIDE(SELECTEDMEASURE(), 1)", "--item-format", 'YoY %="0.0%"', "--precedence", "10", "--apply")
+        self.assertTrue(r["applied"])
+        text = (self.defn / "tables" / "Time Intelligence.tmdl").read_text(encoding="utf-8")
+        self.assertIn("\tcalculationGroup\n\t\tprecedence: 10", text)
+        self.assertIn("\t\tcalculationItem 'Prior Year' = CALCULATE(", text)
+        self.assertIn("\t\t\tformatStringDefinition = \"0.0%\"\n\t\t\tordinal: 2", text)
+        self.assertIn("\tpartition 'Time Intelligence' = calculationGroup", text)
+        model = (self.defn / "model.tmdl").read_text(encoding="utf-8")
+        self.assertIn("\tdiscourageImplicitMeasures", model)
+        self.assertIn("ref table 'Time Intelligence'", model)
+        names = [m["name"] for m in tk.parse_model(self.proj).measures]
+        self.assertNotIn("Current", names)
+        with self.assertRaises(AssertionError):
+            apply("calcgroup", self.proj, "--name", "X", "--item", "no equals sign")
+        apply("undo", self.proj, "--apply")
+        self.assertEqual(snapshot(self.proj), self.original)
+
 
 if __name__ == "__main__":
     unittest.main()

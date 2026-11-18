@@ -74,4 +74,18 @@ Describe 'Scripts on a real PBIP/TMDL export' {
         @($scan.findings | Where-Object { $_.title -like 'PBIP readiness is Strong*' }).Count | Should Be 0
         @($scan.findings | Where-Object { $_.title -eq 'Trust gate is Warn' -and $_.severity -eq 'High' }).Count | Should Be 0
     }
+
+    It 'writes the time-intelligence calculation group draft through the apply engine' {
+        $proj = Join-Path $pluginRoot 'tmp/pester-calcgroup'
+        if (Test-Path -LiteralPath $proj) { Remove-Item -Recurse -Force -LiteralPath $proj }
+        Copy-Item -Recurse -LiteralPath $pbipPath -Destination $proj
+        $draft = & (Join-Path $scriptsPath 'New-PowerBICalculationGroupDraft.ps1') -Json | ConvertFrom-Json
+        @($draft.items).Count | Should Be 5
+        $draft.tmdl | Should Match "partition 'Time Intelligence' = calculationGroup"
+        $result = & (Join-Path $scriptsPath 'Apply-PowerBIPBIPCalculationGroup.ps1') -PbipPath $proj -Apply -Json | ConvertFrom-Json
+        $result.applied | Should Be $true
+        $written = Get-Content -Raw -LiteralPath $result.targetFullPath
+        $written.Replace("`r`n", "`n") | Should Be $draft.tmdl
+        (Get-Content -Raw -LiteralPath (Join-Path $proj 'Sales.SemanticModel/definition/model.tmdl')) | Should Match 'discourageImplicitMeasures'
+    }
 }

@@ -226,7 +226,8 @@ Creates read-only AI sales forecast from open Desktop model or saved extract. Su
 - `New-PowerBIMeasureDraft.ps1`: drafts a measure.
 - `New-PowerBICalculatedColumnDraft.ps1`: drafts a calculated column.
 - `New-PowerBIPowerQueryDraft.ps1`: drafts Power Query M.
-- `New-PowerBICalculationGroupDraft.ps1`: drafts calculation-group TMDL.
+- `New-PowerBICalculationGroupDraft.ps1`: time-intelligence calculation group (Current, Prior Year, YoY, YoY %, YTD) as valid TMDL for a given date column.
+- `Apply-PowerBIPBIPCalculationGroup.ps1`: writes a calculation group into the PBIP model and sets discourageImplicitMeasures when `-Apply` is used (zip backup, undo).
 - `New-PowerBIRelationshipDraft.ps1`: drafts relationship TMDL.
 - `New-PowerBIRlsRoleDraft.ps1`: drafts RLS role TMDL.
 - `New-PowerBIReportPageDraft.ps1`: drafts a report page.
