@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Power BI Model Wizard (no PowerShell required).
 
 Python counterpart of New-PowerBIModelWizard.ps1 with the same output contract

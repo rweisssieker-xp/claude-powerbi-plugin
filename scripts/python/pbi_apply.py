@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """PBIP apply engine: writes reviewed changes into a real Power BI project (TMDL), with backup and undo.
 
 Every command is a dry run unless --apply is given. A dry run prints the target file, the action

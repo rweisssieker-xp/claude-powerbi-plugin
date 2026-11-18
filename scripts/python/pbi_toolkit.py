@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Power BI offline toolkit (no PowerShell required).
 
 Reads PBIP projects, TMDL folders, model.bim, simplified .dax exports and .pq

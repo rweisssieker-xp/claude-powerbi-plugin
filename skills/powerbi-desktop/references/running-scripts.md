@@ -50,11 +50,7 @@ Label Python results `local (python direct file analysis)`. The Python gate is a
 Use this for any of the ~200 scripts without a Python counterpart (release candidate pack, Fabric snapshot packs, semantic test runner, guided fixes, drafts and apply plans, executive packs).
 
 1. Check `command -v pwsh`.
-2. If it is missing, ask the user once whether you may install PowerShell 7 into the workspace (official tarball from `github.com/PowerShell/PowerShell/releases`). After they agree:
-   ```bash
-   curl -sSL -o /tmp/pwsh.tgz https://github.com/PowerShell/PowerShell/releases/download/v7.5.4/powershell-7.5.4-linux-x64.tar.gz
-   mkdir -p /opt/pwsh && tar xzf /tmp/pwsh.tgz -C /opt/pwsh && chmod +x /opt/pwsh/pwsh && ln -sf /opt/pwsh/pwsh /usr/local/bin/pwsh
-   ```
+2. If it is missing, ask the user once whether you may install PowerShell 7 into the workspace. After they agree, follow Microsoft's official instructions for installing PowerShell on Linux (https://learn.microsoft.com/powershell/scripting/install/install-other-linux), using the binary archive from the official releases page (https://github.com/PowerShell/PowerShell/releases).
 3. Run: `pwsh -NoProfile -File "$PLUGIN_ROOT/scripts/<Script>.ps1" -Path <model-folder> -OutputDirectory <out>`.
 
 All offline scripts and the full self-test (`tests/Run-PowerBITests.ps1 -SkipPester`) pass on Linux. Pester itself is not installable in the workspace.
