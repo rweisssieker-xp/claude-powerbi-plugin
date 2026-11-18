@@ -65,4 +65,5 @@ The engine was tested on a PBIP exported from Power BI Desktop 2.159 (Store edit
 - a measure with description and format, plus a multi-line measure;
 - a calculated column, a calculated table, a relationship and an RLS role;
 - every object loaded in Desktop and returned the expected values live;
-- an undo restored the original files byte for byte.
+- an undo restored the original files byte for byte;
+- a report page added with `page` opened in Desktop with its card visuals showing the expected values.
