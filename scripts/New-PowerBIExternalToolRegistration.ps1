@@ -9,7 +9,8 @@ $ErrorActionPreference = 'Stop'
 
 $resolvedPluginRoot = (Resolve-Path -LiteralPath $PluginRoot).Path
 if (-not $OutputPath) {
-    $OutputPath = Join-Path $resolvedPluginRoot 'external-tools/Claude Power BI Workbench.pbitool.json'
+    # Written to the user's data folder: the installed plugin folder is read-only.
+    $OutputPath = Join-Path $(if ($env:LOCALAPPDATA) { Join-Path $env:LOCALAPPDATA 'pbi-workbench' } else { Join-Path $HOME '.local/share/pbi-workbench' }) 'external-tools/Claude Power BI Workbench.pbitool.json'
 }
 $resolvedOutputPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($OutputPath)
 $outputDirectory = Split-Path -Parent $resolvedOutputPath

@@ -25,7 +25,7 @@ function ConvertTo-OutputJson {
 }
 
 function Find-PythonExecutable {
-    $commands = @('python', 'py')
+    $commands = @('python3', 'python', 'py')
     foreach ($command in $commands) {
         if (Get-Command $command -ErrorAction SilentlyContinue) {
             return $command

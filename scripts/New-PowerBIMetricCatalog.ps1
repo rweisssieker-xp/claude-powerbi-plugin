@@ -48,12 +48,28 @@ function Get-TmdlMeasureBlocks {
             $exprLines.Add($next.TrimEnd())
         }
         $expr = (($exprLines | ForEach-Object { $_.Trim() }) -join "`n").Trim().Trim('`').Trim()
+        # Description: the /// lines directly above the measure.
+        $descLines = New-Object System.Collections.Generic.List[string]
+        for ($k = $i - 1; $k -ge 0; $k--) {
+            if ($lines[$k] -match '^\s*///\s?(?<d>.*)$') { $descLines.Insert(0, $Matches.d.TrimEnd()) } else { break }
+        }
+        # Owner: an "annotation Owner = ..." (or MetricOwner / KpiOwner) inside the measure block.
+        $owner = ''
+        for ($j2 = $i + 1; $j2 -lt $lines.Count; $j2++) {
+            $next2 = $lines[$j2]
+            if (-not $next2.Trim()) { continue }
+            $expanded2 = $next2 -replace "`t", '    '
+            if (($expanded2.Length - $expanded2.TrimStart().Length) -le $indent) { break }
+            if ($next2.Trim() -match '^annotation\s+''?(Owner|MetricOwner|KpiOwner)''?\s*=\s*(?<o>.+)$') { $owner = $Matches.o.Trim().Trim('"') }
+        }
         if ($name -and $expr) {
             [pscustomobject]@{
                 Name = $name
                 Table = $table
                 Expression = $expr
                 Source = $RelativePath
+                Description = ($descLines -join ' ').Trim()
+                Owner = $owner
             }
         }
     }
@@ -120,8 +136,8 @@ $metrics = foreach ($file in $measureFiles) {
             tags = @(Get-MetricTags -Name $_.Name -Expression $_.Expression)
             riskLevel = if ($risks.Count -gt 0) { 'review' } else { 'normal' }
             risks = $risks
-            owner = '[TODO: metric owner]'
-            businessDefinition = '[TODO: business definition]'
+            owner = $(if ($_.PSObject.Properties['Owner'] -and $_.Owner) { $_.Owner } else { '[TODO: metric owner]' })
+            businessDefinition = $(if ($_.PSObject.Properties['Description'] -and $_.Description) { $_.Description } else { '[TODO: business definition]' })
             validationQuestion = ('Does `{0}` reconcile to the accepted business source for the selected filter context?' -f $_.Name)
             expression = $_.Expression
         }

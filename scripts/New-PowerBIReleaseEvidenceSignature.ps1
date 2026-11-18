@@ -13,6 +13,6 @@ $sha = [System.Security.Cryptography.SHA256]::Create()
 $signature = ([BitConverter]::ToString($sha.ComputeHash($bytes))).Replace('-', '').ToLowerInvariant()
 $result = [pscustomobject]@{ schema = 'codex.powerbi.releaseEvidenceSignature.v1'; root = $root; evidenceRoot = $artifactRoot; generated = (Get-Date).ToString('s'); artifactCount = $files.Count; signatureAlgorithm = 'SHA256'; evidenceSignature = $signature; artifacts = @($hashes) }
 if ($Json) { $text = $result | ConvertTo-Json -Depth 8; if ($OutputPath) { Set-Content -LiteralPath $OutputPath -Value $text -Encoding UTF8 }; $text; return }
-$content = "# Power BI Release Evidence Signature`n`nSignature: `$($result.evidenceSignature)`n"
+$content = "# Power BI Release Evidence Signature`n`nSignature: ``$($result.evidenceSignature)```n"
 if ($OutputPath) { Set-Content -LiteralPath $OutputPath -Value $content -Encoding UTF8 }
 $content

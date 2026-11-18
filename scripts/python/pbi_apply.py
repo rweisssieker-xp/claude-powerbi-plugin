@@ -105,6 +105,10 @@ class Project:
         self.model_dir = models[0]
         self.definition = self.model_dir / "definition"
         self.state = self.root / ".pbip-apply"
+        reports = sorted(r for r in self.root.glob("*.Report") if (r / "definition" / "pages").is_dir())
+        same = [r for r in reports if r.name[:-len(".Report")] == self.model_dir.name[:-len(".SemanticModel")]]
+        self.report_dir = (same or reports or [None])[0]
+        self.report_def = self.report_dir / "definition" if self.report_dir else None
 
     def rel(self, p: Path) -> str:
         return str(p.relative_to(self.root)).replace(os.sep, "/")
@@ -191,6 +195,8 @@ def upsert_table_child(p: Project, table: str, kind: str, name: str, block: list
 
 # --------------------------------------------------------------------------- state
 
+REPORT_PREFIX = "__report__/"  # report definition files inside a backup zip
+
 def backup(p: Project) -> str:
     bid = _dt.datetime.now().strftime("%Y%m%d-%H%M%S-%f")
     dest = p.state / "backups" / f"{bid}.zip"
@@ -199,6 +205,10 @@ def backup(p: Project) -> str:
         for f in sorted(p.definition.rglob("*")):
             if f.is_file():
                 z.write(f, f.relative_to(p.definition).as_posix())
+        if p.report_def:
+            for f in sorted(p.report_def.rglob("*")):
+                if f.is_file():
+                    z.write(f, REPORT_PREFIX + f.relative_to(p.report_def).as_posix())
     return bid
 
 
@@ -350,6 +360,14 @@ def cmd_tmdl(p: Project, a) -> dict:
     if first is None:
         raise SystemExit("Empty TMDL draft.")
     head = raw[first]
+    if re.match(r"^(///|measure\s|column\s)", head):
+        table = getattr(a, "table", None)
+        if not table:
+            raise SystemExit("This draft holds only a measure or column. Pass the target table (--table / -TableName), "
+                             "or start the draft with a 'table <Name>' line.")
+        raw = [f"table {q(table)}"] + [("\t" + l) if l.strip() else l for l in raw[first:]]
+        first = 0
+        head = raw[0]
     if head.startswith("table "):
         table = unq(head[len("table "):])
         children = [l for l in raw[first + 1:]]
@@ -402,11 +420,113 @@ def cmd_tmdl(p: Project, a) -> dict:
     raise SystemExit(f"Unsupported TMDL draft header: {head!r}")
 
 
+def _pbir_schema(base: Path, pattern: str, kind: str, default: str) -> str:
+    for f in sorted(base.rglob(pattern)):
+        try:
+            s = json.loads(f.read_text(encoding="utf-8-sig")).get("$schema", "")
+        except (OSError, ValueError):
+            continue
+        if f"/{kind}/" in s:
+            return s
+    return default
+
+
+def _measure_tables(p: Project) -> dict[str, str]:
+    out = {}
+    for f in (p.definition / "tables").glob("*.tmdl"):
+        table = None
+        for line in f.read_text(encoding="utf-8-sig").splitlines():
+            m = re.match(r"^table\s+(.+?)\s*$", line)
+            if m:
+                table = unq(m.group(1))
+            m = re.match(r"^\s+measure\s+('(?:[^']|'')+'|[^\s=]+)\s*=", line)
+            if m and table:
+                out[unq(m.group(1))] = table
+    return out
+
+
+def cmd_page(p: Project, a) -> dict:
+    """Add a report page (PBIR) with one card visual per measure."""
+    if not p.report_def:
+        raise SystemExit("No PBIR report found (<Name>.Report/definition/pages). Open the project in Power BI Desktop, "
+                         "enable 'Store reports using enhanced metadata format (PBIR)' and save, then try again.")
+    pages_dir = p.report_def / "pages"
+    pages_json = pages_dir / "pages.json"
+    meta = json.loads(pages_json.read_text(encoding="utf-8-sig")) if pages_json.exists() else {
+        "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/pagesMetadata/1.0.0/schema.json",
+        "pageOrder": []}
+    names = {}
+    for f in pages_dir.glob("*/page.json"):
+        try:
+            d = json.loads(f.read_text(encoding="utf-8-sig"))
+            names[d.get("displayName")] = d.get("name")
+        except ValueError:
+            pass
+    if a.name in names:
+        return {"schema": SCHEMA, "pbipPath": str(p.root), "objectType": "ReportPage", "objectName": a.name,
+                "action": "skip", "applied": False, "note": f"A page named {a.name!r} already exists ({names[a.name]})."}
+    lookup = _measure_tables(p)
+    measures = []
+    for m in a.measure:  # "A,B,C" arrives as one value from `powershell -File`
+        measures += [m] if m in lookup or "," not in m else [x.strip() for x in m.split(",") if x.strip()]
+    a.measure = measures
+    missing = [m for m in a.measure if m not in lookup]
+    if missing:
+        raise SystemExit(f"Measure(s) not found in the model: {', '.join(missing)}. Known: {', '.join(sorted(lookup))}")
+    page_id = uuid.uuid4().hex[:20]
+    width, height = a.width, a.height
+    page = {"$schema": _pbir_schema(pages_dir, "page.json", "page",
+                                    "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/page/2.0.0/schema.json"),
+            "name": page_id, "displayName": a.name, "displayOption": "FitToPage", "height": height, "width": width}
+    vschema = _pbir_schema(pages_dir, "visual.json", "visualContainer",
+                           "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.0.0/schema.json")
+    cols = max(1, min(4, len(a.measure)))
+    margin, gap = 24, 16
+    vw = (width - 2 * margin - (cols - 1) * gap) // cols
+    vh = 200
+    visuals = {}
+    for i, measure in enumerate(a.measure):
+        vid = uuid.uuid4().hex[:20]
+        table = lookup[measure]
+        visuals[vid] = {
+            "$schema": vschema, "name": vid,
+            "position": {"x": margin + (i % cols) * (vw + gap), "y": margin + (i // cols) * (vh + gap), "z": i,
+                         "height": vh, "width": vw, "tabOrder": i},
+            "visual": {"visualType": "card",
+                       "query": {"queryState": {"Values": {"projections": [{
+                           "field": {"Measure": {"Expression": {"SourceRef": {"Entity": table}}, "Property": measure}},
+                           "queryRef": f"{table}.{measure}", "nativeQueryRef": measure}]}}},
+                       "drillFilterOtherVisuals": True}}
+    meta = dict(meta)
+    meta["pageOrder"] = list(meta.get("pageOrder", [])) + [page_id]
+    files = [(pages_dir / page_id / "page.json", page)] + [(pages_dir / page_id / "visuals" / v / "visual.json", d) for v, d in visuals.items()]
+    result = {"schema": SCHEMA, "pbipPath": str(p.root), "report": p.report_dir.name, "objectType": "ReportPage",
+              "objectName": a.name, "pageId": page_id, "targetPath": p.rel(pages_dir / page_id / "page.json"),
+              "action": "insert", "applied": False, "backupId": None,
+              "files": [p.rel(f) for f, _ in files] + [p.rel(pages_json)],
+              "visuals": [{"name": v, "visualType": "card", "measure": d["visual"]["query"]["queryState"]["Values"]["projections"][0]["nativeQueryRef"]} for v, d in visuals.items()],
+              "validation": "Close the project in Power BI Desktop, reopen the .pbip and check the new page."}
+    if not a.apply:
+        result["note"] = "Dry run: nothing written. Re-run with --apply after review."
+        return result
+    bid = backup(p)
+    for f, d in files:
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text(json.dumps(d, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    pages_json.write_text(json.dumps(meta, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    result.update(applied=True, backupId=bid, rollback=f"pbi_apply.py undo \"{p.root}\" --backup {bid} --apply")
+    record(p, {"id": bid, "at": _dt.datetime.now().replace(microsecond=0).isoformat(), "objectType": "ReportPage",
+               "objectName": a.name, "file": p.rel(pages_dir / page_id / "page.json"), "action": "insert",
+               "extraFiles": [p.rel(f) for f, _ in files[1:]] + [p.rel(pages_json)]})
+    return result
+
+
 def cmd_spec(p: Project, a) -> dict:
     spec = json.loads(Path(a.spec_file).read_text(encoding="utf-8-sig"))
     command = spec.pop("command")
     defaults = {"format": None, "description": None, "folder": None, "data_type": "string", "column": [],
-                "both_directions": False, "inactive": False, "one_to_one": False, "backup": None}
+                "both_directions": False, "inactive": False, "one_to_one": False, "backup": None,
+                "measure": [], "width": 1280, "height": 720, "table": None}
     ns = argparse.Namespace(**{**defaults, **{k.replace("-", "_"): v for k, v in spec.items()}}, apply=a.apply, pbip=a.pbip)
     if "from" in spec:
         ns.from_ = spec["from"]
@@ -420,7 +540,7 @@ def cmd_spec(p: Project, a) -> dict:
         tmp.write_text(spec["tmdl"], encoding="utf-8")
         ns.tmdl_file = str(tmp)
     fn = {"measure": cmd_measure, "column": cmd_column, "table": cmd_table, "relationship": cmd_relationship,
-          "role": cmd_role, "query": cmd_query, "tmdl": cmd_tmdl, "undo": cmd_undo}[command]
+          "role": cmd_role, "query": cmd_query, "tmdl": cmd_tmdl, "undo": cmd_undo, "page": cmd_page}[command]
     return fn(p, ns)
 
 
@@ -433,29 +553,41 @@ def cmd_undo(p: Project, a) -> dict:
     if not src.exists():
         raise SystemExit(f"Backup {a.backup} not found. Available: {', '.join(b.stem for b in backups)}")
     with zipfile.ZipFile(src) as z:
-        saved = {n: z.read(n) for n in z.namelist() if not n.endswith("/")}
-    current = {f.relative_to(p.definition).as_posix() for f in p.definition.rglob("*") if f.is_file()}
-    added = sorted(current - set(saved))
-    changed = sorted(n for n, data in saved.items() if not (p.definition / n).exists() or (p.definition / n).read_bytes() != data)
+        names = [n for n in z.namelist() if not n.endswith("/")]
+        saved_all = {n: z.read(n) for n in names}
+    has_report = any(n.startswith(REPORT_PREFIX) for n in saved_all)
+    trees = [(p.definition, {n: d for n, d in saved_all.items() if not n.startswith(REPORT_PREFIX)}, "")]
+    if has_report and p.report_def:
+        trees.append((p.report_def, {n[len(REPORT_PREFIX):]: d for n, d in saved_all.items() if n.startswith(REPORT_PREFIX)},
+                      p.rel(p.report_def) + "/"))
+    plan = []
+    for base, saved, label in trees:
+        current = {f.relative_to(base).as_posix() for f in base.rglob("*") if f.is_file()}
+        added = sorted(current - set(saved))
+        changed = sorted(n for n, data in saved.items() if not (base / n).exists() or (base / n).read_bytes() != data)
+        plan.append((base, saved, label, added, changed))
     result = {"schema": SCHEMA, "pbipPath": str(p.root), "action": "undo", "backupId": src.stem, "applied": False,
-              "restoreFiles": changed, "moveAsideFiles": added}
+              "restoreFiles": [lbl + n for _, _, lbl, _, ch in plan for n in ch],
+              "moveAsideFiles": [lbl + n for _, _, lbl, ad, _ in plan for n in ad]}
     if not a.apply:
         result["note"] = "Dry run: nothing restored. Re-run with --apply."
         return result
     aside = p.state / "undone" / _dt.datetime.now().strftime("%Y%m%d-%H%M%S")
-    for r in added:
-        (aside / r).parent.mkdir(parents=True, exist_ok=True)
-        os.replace(p.definition / r, aside / r)
-    for r in changed:
-        (p.definition / r).parent.mkdir(parents=True, exist_ok=True)
-        (p.definition / r).write_bytes(saved[r])
-    saved_dirs = {str(Path(n).parent.as_posix()) for n in saved}
-    for d in sorted((x for x in p.definition.rglob("*") if x.is_dir()), key=lambda x: -len(x.parts)):
-        if not any(d.iterdir()) and d.relative_to(p.definition).as_posix() not in saved_dirs:
-            try:
-                d.rmdir()  # empty folder created by a later change; harmless if removal is not permitted
-            except OSError:
-                pass
+    for base, saved, label, added, changed in plan:
+        sub_aside = aside / ("report" if label else "model")
+        for r in added:
+            (sub_aside / r).parent.mkdir(parents=True, exist_ok=True)
+            os.replace(base / r, sub_aside / r)
+        for r in changed:
+            (base / r).parent.mkdir(parents=True, exist_ok=True)
+            (base / r).write_bytes(saved[r])
+        saved_dirs = {str(Path(n).parent.as_posix()) for n in saved}
+        for d in sorted((x for x in base.rglob("*") if x.is_dir()), key=lambda x: -len(x.parts)):
+            if not any(d.iterdir()) and d.relative_to(base).as_posix() not in saved_dirs:
+                try:
+                    d.rmdir()  # empty folder created by a later change; harmless if removal is not permitted
+                except OSError:
+                    pass
     result["applied"] = True
     record(p, {"id": f"undo-{src.stem}", "at": _dt.datetime.now().replace(microsecond=0).isoformat(), "objectType": "Undo",
                "objectName": src.stem, "file": None, "action": "undo", "movedAside": p.rel(aside)})
@@ -482,6 +614,10 @@ def main(argv=None) -> int:
     s = add("role"); s.add_argument("--name", required=True); s.add_argument("--table", required=True); s.add_argument("--filter", required=True)
     s = add("query"); s.add_argument("--name", required=True); s.add_argument("--m-file", required=True)
     s = add("tmdl"); s.add_argument("--tmdl-file", required=True)
+    s.add_argument("--table", help="target table for a draft that holds only a measure or column")
+    s = add("page"); s.add_argument("--name", required=True)
+    s.add_argument("--measure", action="append", default=[], help="measure for a card visual (repeatable)")
+    s.add_argument("--width", type=int, default=1280); s.add_argument("--height", type=int, default=720)
     s = add("spec"); s.add_argument("--spec-file", required=True)
     s = add("undo"); s.add_argument("--backup")
     s = sub.add_parser("history"); s.add_argument("pbip")
@@ -491,7 +627,7 @@ def main(argv=None) -> int:
         print(json.dumps(manifest(p), indent=2, ensure_ascii=False))
         return 0
     fn = {"measure": cmd_measure, "column": cmd_column, "table": cmd_table, "relationship": cmd_relationship,
-          "role": cmd_role, "query": cmd_query, "tmdl": cmd_tmdl, "spec": cmd_spec, "undo": cmd_undo}[a.cmd]
+          "role": cmd_role, "query": cmd_query, "tmdl": cmd_tmdl, "spec": cmd_spec, "undo": cmd_undo, "page": cmd_page}[a.cmd]
     print(json.dumps(fn(p, a), indent=2, ensure_ascii=False))
     return 0
 

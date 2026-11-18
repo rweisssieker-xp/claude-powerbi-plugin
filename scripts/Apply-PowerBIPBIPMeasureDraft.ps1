@@ -1,6 +1,8 @@
 ﻿param([string]$PbipPath, [string]$TableName, [string]$MeasureName, [string]$Expression, [string]$FormatString, [string]$Description, [string]$DisplayFolder, [switch]$Apply, [switch]$Json)
 # Inserts or replaces a measure in <Table>.tmdl of the PBIP project. Dry run unless -Apply. Undo: Undo-PowerBIPBIPApply.ps1.
 $ErrorActionPreference = 'Stop'
+$missing = @($(if (-not $PbipPath) { '-PbipPath' }), $(if (-not $TableName) { '-TableName' }), $(if (-not $MeasureName) { '-MeasureName' }), $(if (-not $Expression) { '-Expression' })) | Where-Object { $_ }
+if ($missing) { throw ('Missing required parameter(s): ' + ($missing -join ', ') + '.') }
 . (Join-Path $PSScriptRoot 'PowerBIPBIPApply.Shared.ps1')
 $spec = @{ command = 'measure'; table = $TableName; name = $MeasureName; expression = $Expression }
 if ($FormatString) { $spec.format = $FormatString }

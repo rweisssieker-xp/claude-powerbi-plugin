@@ -1,7 +1,9 @@
 param([string]$Path='.', [string]$MemoryPath, [string]$OutputPath, [switch]$Json)
 $ErrorActionPreference='Stop'
 $scriptRoot=Split-Path -Parent $MyInvocation.MyCommand.Path
-if(-not $MemoryPath){$MemoryPath=Join-Path (Split-Path -Parent $scriptRoot) 'rules/powerbi-review-memory.json'}
+# Review memory lives in the user's data folder: the installed plugin folder is read-only.
+if(-not $MemoryPath){$MemoryPath=Join-Path $(if ($env:LOCALAPPDATA) { Join-Path $env:LOCALAPPDATA 'pbi-workbench' } else { Join-Path $HOME '.local/share/pbi-workbench' }) 'review-memory.json'}
+$memoryDir=Split-Path -Parent ([System.IO.Path]::GetFullPath($MemoryPath)); if(-not (Test-Path -LiteralPath $memoryDir)){New-Item -ItemType Directory -Force -Path $memoryDir|Out-Null}
 $gate=&(Join-Path $scriptRoot 'New-PowerBITrustReleaseGate.ps1') -Path $Path -Json|ConvertFrom-Json
 $fixes=&(Join-Path $scriptRoot 'New-PowerBIGuidedFixPlan.ps1') -Path $Path -Json|ConvertFrom-Json
 $memory=if(Test-Path -LiteralPath $MemoryPath){Get-Content -Raw -LiteralPath $MemoryPath|ConvertFrom-Json}else{[pscustomobject]@{schema='codex.powerbi.reviewMemory.v1'; reviews=@()}}

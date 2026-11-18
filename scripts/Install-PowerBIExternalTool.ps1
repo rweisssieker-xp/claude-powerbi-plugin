@@ -6,6 +6,10 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+if ($PSVersionTable.PSEdition -eq 'Core' -and -not $IsWindows) {
+    throw 'Power BI Desktop External Tools exist only on Windows. Run this script on the Windows computer with Power BI Desktop (as administrator).'
+}
+
 $registration = & (Join-Path $PSScriptRoot 'New-PowerBIExternalToolRegistration.ps1') -PluginRoot $PluginRoot -Json | ConvertFrom-Json
 $sourcePath = $registration.outputPath
 $installDirectory = Join-Path $env:CommonProgramFiles 'Microsoft Shared\Power BI Desktop\External Tools'

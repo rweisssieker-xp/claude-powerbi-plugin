@@ -11,9 +11,9 @@ foreach ($id in $beforeById.Keys) {
     elseif ($beforeById[$id].expression -ne $afterById[$id].expression) { $changes.Add([pscustomobject]@{ type = 'ChangedMeasure'; id = $id; risk = 'Medium'; detail = 'Measure expression changed.' }) }
 }
 foreach ($id in $afterById.Keys) { if (-not $beforeById.ContainsKey($id)) { $changes.Add([pscustomobject]@{ type = 'AddedMeasure'; id = $id; risk = 'Low'; detail = 'Measure added.' }) } }
-$result = [pscustomobject]@{ schema = 'codex.powerbi.semanticDiff.v1'; before = $before.root; after = $after.root; generated = (Get-Date).ToString('s'); changeCount = $changes.Count; changes = @($changes) }
+$result = [pscustomobject]@{ schema = 'codex.powerbi.semanticDiff.v1'; before = $before.root; after = $after.root; generated = (Get-Date).ToString('s'); changeCount = $changes.Count; changes = $changes.ToArray() }
 if ($Json) { $text = $result | ConvertTo-Json -Depth 6; if ($OutputPath) { Set-Content -LiteralPath $OutputPath -Value $text -Encoding UTF8 }; $text; return }
-$md = @('# Power BI Semantic Diff', '', "Changes: $($result.changeCount)", '') + @($result.changes | ForEach-Object { "- [$($_.risk)] $($_.type): `$($_.id)` - $($_.detail)" })
+$md = @('# Power BI Semantic Diff', '', "Changes: $($result.changeCount)", '') + @($result.changes | ForEach-Object { "- [$($_.risk)] $($_.type): ``$($_.id)`` - $($_.detail)" })
 $content = ($md -join [Environment]::NewLine) + [Environment]::NewLine
 if ($OutputPath) { Set-Content -LiteralPath $OutputPath -Value $content -Encoding UTF8 }
 $content

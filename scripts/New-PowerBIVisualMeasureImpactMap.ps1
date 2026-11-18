@@ -79,7 +79,7 @@ $result = [pscustomobject]@{
     impacts = @($items)
 }
 if ($Json) { $text = $result | ConvertTo-Json -Depth 8; if ($OutputPath) { Set-Content -LiteralPath $OutputPath -Value $text -Encoding UTF8 }; $text; return }
-$md = @('# Power BI Visual-to-Measure Impact Map', '') + @($result.impacts | ForEach-Object { "- `$($_.measure)`: $($_.detectedVisualReferences) visual metadata references. $($_.impactGuidance)" })
+$md = @('# Power BI Visual-to-Measure Impact Map', '') + @($result.impacts | ForEach-Object { "- ``$($_.measure)``: $($_.detectedVisualReferences) visual metadata references. $($_.impactGuidance)" })
 $content = ($md -join [Environment]::NewLine) + [Environment]::NewLine
 if ($OutputPath) { Set-Content -LiteralPath $OutputPath -Value $content -Encoding UTF8 }
 $content

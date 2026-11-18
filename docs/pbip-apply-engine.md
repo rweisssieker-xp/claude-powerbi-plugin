@@ -22,10 +22,13 @@ python3 -I scripts/python/pbi_apply.py table        <PBIP> --name Regions --expr
 python3 -I scripts/python/pbi_apply.py relationship <PBIP> --from Sales.CustomerKey --to Customer.CustomerKey [--both-directions] [--inactive] [--one-to-one] [--apply]
 python3 -I scripts/python/pbi_apply.py role         <PBIP> --name "EU only" --table Customer --filter 'Customer[Region] = "EU"' [--apply]
 python3 -I scripts/python/pbi_apply.py query        <PBIP> --name DimDate --m-file DimDate.pq [--apply]
-python3 -I scripts/python/pbi_apply.py tmdl         <PBIP> --tmdl-file draft.tmdl [--apply]
+python3 -I scripts/python/pbi_apply.py tmdl         <PBIP> --tmdl-file draft.tmdl [--table Sales] [--apply]
+python3 -I scripts/python/pbi_apply.py page         <PBIP> --name "KPI Overview" --measure "Total Sales" --measure "Sales YoY %" [--apply]
 python3 -I scripts/python/pbi_apply.py undo         <PBIP> [--backup <id>] [--apply]
 python3 -I scripts/python/pbi_apply.py history      <PBIP>
 ```
+
+`page` adds a report page in PBIR format (`<Name>.Report/definition/pages`) with one card visual per measure and appends it to `pageOrder`. The backup then also holds the report definition, and `undo` restores both. A draft with only a measure or column needs `--table`.
 
 `<PBIP>` is the project folder or the `.pbip` file. Column references accept `Table.Column`, `Table[Column]` and quoted names.
 
@@ -36,7 +39,8 @@ python3 -I scripts/python/pbi_apply.py history      <PBIP>
   -Expression "DIVIDE([Total Sales], COUNTROWS('Sales'))" -FormatString "#,0.00" -Apply
 .\scripts\Apply-PowerBIPBIPCalculatedColumnDraft.ps1 -PbipPath .\MyReport -TableName Sales -ColumnName "Sales Band" -Expression "…" -Apply
 .\scripts\Apply-PowerBIPBIPPowerQueryDraft.ps1      -PbipPath .\MyReport -QueryName DimDate -SourceKind DateTable -Apply
-.\scripts\Apply-PowerBIPBIPTmdlDraft.ps1            -PbipPath .\MyReport -Tmdl (Get-Content .\draft.tmdl -Raw) -Apply
+.\scripts\Apply-PowerBIPBIPTmdlDraft.ps1            -PbipPath .\MyReport -Tmdl (Get-Content .\draft.tmdl -Raw) [-TableName Sales] -Apply
+.\scripts\Add-PowerBIPBIPReportPage.ps1             -PbipPath .\MyReport -PageName 'KPI Overview' -Measures 'Total Sales','Sales YoY %' -Apply
 .\scripts\Undo-PowerBIPBIPApply.ps1                 -PbipPath .\MyReport [-BackupId <id>] -Apply
 .\scripts\Invoke-PowerBIPBIPApplyPlan.ps1           -PbipPath .\MyReport -OutputPath .\apply-plan.json
 .\scripts\Test-PowerBIPBIPRollbackReadiness.ps1     -PbipPath .\MyReport

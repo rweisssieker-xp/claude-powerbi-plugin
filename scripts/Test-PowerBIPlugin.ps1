@@ -705,11 +705,13 @@ catch {
 
 try {
     $applyRoot = Join-Path $PluginRoot 'tmp/pbip-page-apply-test'
+    if (Test-Path -LiteralPath $applyRoot) { Remove-Item -Recurse -Force -LiteralPath $applyRoot }
+    Copy-Item -Recurse -LiteralPath (Join-Path $PluginRoot 'examples/pbip-tmdl-model') -Destination $applyRoot
     $apply = & (Join-Path $scriptsPath 'Add-PowerBIPBIPReportPage.ps1') -PbipPath $applyRoot -PageName 'Executive Overview' -Measures 'Total Sales','Sales YoY %' -Apply -Json | ConvertFrom-Json
-    Add-TestResult -Name 'PBIP report page apply writes draft files' -Passed ($apply.applied -eq $true -and (Test-Path -LiteralPath $apply.pagePath)) -Detail $apply.pagePath
+    Add-TestResult -Name 'PBIP report page apply writes a PBIR page' -Passed ($apply.applied -eq $true -and (Test-Path -LiteralPath $apply.targetFullPath) -and @($apply.visuals).Count -eq 2) -Detail $apply.targetFullPath
 }
 catch {
-    Add-TestResult -Name 'PBIP report page apply writes draft files' -Passed $false -Detail $_.Exception.Message
+    Add-TestResult -Name 'PBIP report page apply writes a PBIR page' -Passed $false -Detail $_.Exception.Message
 }
 
 try {

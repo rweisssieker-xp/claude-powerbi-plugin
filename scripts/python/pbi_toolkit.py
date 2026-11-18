@@ -150,7 +150,8 @@ def parse_model(root: Path) -> Model:
     if root.is_dir():
         entries = {rel(root, f).replace(os.sep, "/"): (lambda f=f: f.read_bytes()) for f in files
                    if f.suffix.lower() == ".json" and "/definition/" in rel(root, f).replace(os.sep, "/")
-                   or f.name == "report.json"}
+                   or f.name == "report.json"
+                   or (f.name == "package.json" and "/CustomVisuals/" in "/" + rel(root, f).replace(os.sep, "/"))}
         if entries:
             model.report = parse_report(entries)
     return model
@@ -594,14 +595,17 @@ def parse_report(entries: dict) -> dict:
             rep["pages"].append(page)
         rep["publicCustomVisuals"] = lay.get("publicCustomVisuals") or []
     for k in sorted(entries):
-        if k.startswith("Report/CustomVisuals/") and k.endswith("/package.json"):
+        # PBIX: Report/CustomVisuals/<guid>/package.json; PBIP: <Name>.Report/CustomVisuals/<guid>/package.json
+        parts = k.split("/")
+        if "CustomVisuals" in parts and k.endswith("/package.json") and parts.index("CustomVisuals") + 2 < len(parts):
+            guid = parts[parts.index("CustomVisuals") + 1]
             try:
                 pj = load(k)
                 vis = pj.get("visual") or {}
-                rep["customVisuals"].append({"guid": vis.get("guid") or k.split("/")[2], "name": vis.get("displayName") or vis.get("name"),
+                rep["customVisuals"].append({"guid": vis.get("guid") or guid, "name": vis.get("displayName") or vis.get("name"),
                                              "version": vis.get("version"), "author": (pj.get("author") or {}).get("name")})
             except Exception:  # noqa: BLE001
-                rep["customVisuals"].append({"guid": k.split("/")[2], "name": None, "version": None, "author": None})
+                rep["customVisuals"].append({"guid": guid, "name": None, "version": None, "author": None})
     rep["pageCount"] = len(rep["pages"])
     rep["visualCount"] = len(rep["visuals"])
     return rep

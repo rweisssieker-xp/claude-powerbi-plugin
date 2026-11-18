@@ -126,6 +126,44 @@ class ApplyEngine(unittest.TestCase):
         hist = apply("history", self.proj)
         self.assertEqual([c["action"] for c in hist["changes"]][-1], "undo")
 
+    def test_tmdl_bare_measure_needs_table(self):
+        draft = self.tmp / "m.tmdl"
+        draft.write_text("/// Half of sales\nmeasure 'Half Sales' = [Total Sales] / 2\n    formatString: #,0\n", encoding="utf-8")
+        out = subprocess.run([sys.executable, "-I", str(APPLY), "tmdl", str(self.proj), "--tmdl-file", str(draft)],
+                             capture_output=True, text=True)
+        self.assertNotEqual(out.returncode, 0)
+        self.assertIn("--table", out.stderr + out.stdout)
+        r = apply("tmdl", self.proj, "--tmdl-file", draft, "--table", "Sales", "--apply")
+        self.assertTrue(r["applied"])
+        text = (self.defn / "tables" / "Sales.tmdl").read_text(encoding="utf-8")
+        self.assertIn("\t/// Half of sales\n\tmeasure 'Half Sales' = [Total Sales] / 2\n\t\tformatString: #,0", text)
+
+    def test_page_adds_pbir_page_and_undo_restores_report(self):
+        report = self.proj / "Sales.Report" / "definition"
+        before = {f.relative_to(report).as_posix(): f.read_bytes() for f in report.rglob("*") if f.is_file()}
+        dry = apply("page", self.proj, "--name", "KPI", "--measure", "Total Sales,Sales YoY %")
+        self.assertFalse(dry["applied"])
+        self.assertEqual([v["measure"] for v in dry["visuals"]], ["Total Sales", "Sales YoY %"])
+        r = apply("page", self.proj, "--name", "KPI", "--measure", "Total Sales", "--measure", "Sales YoY %", "--apply")
+        self.assertTrue(r["applied"])
+        order = json.loads((report / "pages" / "pages.json").read_text(encoding="utf-8"))["pageOrder"]
+        self.assertEqual(order[-1], r["pageId"])
+        page = json.loads((report / "pages" / r["pageId"] / "page.json").read_text(encoding="utf-8"))
+        self.assertEqual(page["displayName"], "KPI")
+        visuals = list((report / "pages" / r["pageId"] / "visuals").glob("*/visual.json"))
+        self.assertEqual(len(visuals), 2)
+        v = json.loads(visuals[0].read_text(encoding="utf-8"))
+        self.assertEqual(v["visual"]["visualType"], "card")
+        rep = tk.parse_model(self.proj).report
+        self.assertIn("KPI", [pg["name"] for pg in rep["pages"]])
+        self.assertEqual(apply("page", self.proj, "--name", "KPI", "--measure", "Total Sales")["action"], "skip")
+        with self.assertRaises(AssertionError):
+            apply("page", self.proj, "--name", "Other", "--measure", "Nope")
+        apply("undo", self.proj, "--apply")
+        after = {f.relative_to(report).as_posix(): f.read_bytes() for f in report.rglob("*") if f.is_file()}
+        self.assertEqual(after, before)
+        self.assertEqual(snapshot(self.proj), self.original)
+
 
 if __name__ == "__main__":
     unittest.main()

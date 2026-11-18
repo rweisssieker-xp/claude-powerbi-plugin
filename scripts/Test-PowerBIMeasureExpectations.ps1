@@ -93,11 +93,18 @@ function Test-ExpectedValue {
     return ([string]$Actual -eq [string]$Expected)
 }
 
+$explicitExpectations = [bool]$ExpectationsPath
 if (-not $ExpectationsPath) {
     $ExpectationsPath = Join-Path (Resolve-Path -LiteralPath $Path).Path 'measure-expectations.json'
 }
 
 if (-not (Test-Path -LiteralPath $ExpectationsPath)) {
+    if (-not $explicitExpectations) {
+        # Never write into the user's project: put the template next to the report (or in the temp folder).
+        $templateDir = if ($OutputPath) { Split-Path -Parent ([System.IO.Path]::GetFullPath($OutputPath)) } else { [System.IO.Path]::GetTempPath() }
+        if (-not (Test-Path -LiteralPath $templateDir)) { New-Item -ItemType Directory -Force -Path $templateDir | Out-Null }
+        $ExpectationsPath = Join-Path $templateDir 'measure-expectations.template.json'
+    }
     $template = [pscustomobject]@{
         schema = 'codex.powerbi.measureExpectations.v1'
         expectations = @($catalog.metrics | Select-Object -First 3 | ForEach-Object {

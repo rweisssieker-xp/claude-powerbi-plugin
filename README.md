@@ -1,5 +1,7 @@
 # pbi-workbench: Power BI Workbench for Claude
 
+[![tests](https://github.com/rweisssieker-xp/claude-powerbi-plugin/actions/workflows/tests.yml/badge.svg)](https://github.com/rweisssieker-xp/claude-powerbi-plugin/actions/workflows/tests.yml)
+
 Guided Power BI workflows from data sources to trusted decisions: model design, KPI trust, safe PBIP/TMDL changes, release gates, live Desktop review, AI forecasting, and Fabric operations. Ported from the author's Codex plugin `powerbi-desktop` 3.0.0 and extended for Claude.
 
 PBIX/PBIT binaries are never modified. Live Desktop and Fabric access are read-only. Every result is labeled by its evidence: local, live, snapshot, heuristic, or draft.

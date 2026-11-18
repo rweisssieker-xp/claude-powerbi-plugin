@@ -1,5 +1,19 @@
 # Changelog
 
+## 3.4.0 - 2026-11-18
+
+Every script was run against a real Power BI Desktop PBIP export (two tables, relationship, RLS role, calculated column and table, PBIR report with a custom visual). Fixes from that run:
+
+- **RLS:** roles in Desktop TMDL syntax (`tablePermission <Table> = <filter>`) were not read, so every role was reported as "no policy evidence" and the release was blocked. A model without roles is now `NotApplicable` instead of `Blocked` with an invented role.
+- **KPI catalog and best practices:** TMDL descriptions (`///`) are used as business definitions; owners can be set with `annotation Owner = <name>`. Governance gaps are reported once per rule with the affected measures, so the score no longer drops to 0 for documentation gaps alone. Measure names in eight reports were printed as raw PowerShell objects.
+- **Report pages:** `Add-PowerBIPBIPReportPage.ps1` wrote a non-PBIR folder layout. It now uses the apply engine (`pbi_apply.py page`): a PBIR page with one card visual per measure, `pageOrder` updated, zip backup and undo (backups now include the report definition).
+- **Apply engine:** `tmdl --table` (`Apply-PowerBIPBIPTmdlDraft.ps1 -TableName`) for drafts that hold only a measure or column; clear errors for missing parameters in the measure and column wrappers.
+- **No writes outside the output:** the measure expectations template is no longer written into the reviewed project; review memory and the External Tools registration go to the user data folder (`%LOCALAPPDATA%\pbi-workbench`), not into the read-only plugin folder.
+- **Fixed crashes:** `Compare-PowerBISemanticModel.ps1` and `Compare-PowerBINativeModel.ps1` failed when nothing changed.
+- **Portability:** the AI forecast finds `python3`; live scripts and External Tools installers explain that they need Windows instead of failing on `powershell.exe`.
+- **Custom visuals** in PBIP projects (`<Name>.Report/CustomVisuals`) are detected by the Python review.
+- **CI:** GitHub Actions runs the Python tests, the PowerShell self-test, golden baselines and Pester on Linux (PowerShell 7) and Windows (Windows PowerShell 5.1). Pester failures now fail the test run. New Pester tests for the fixes; 31 Python tests, 64 Pester tests.
+
 ## 3.3.0 - 2026-11-18
 
 - Real PBIP apply engine (`scripts/python/pbi_apply.py`): measures, calculated columns, calculated tables, relationships, RLS roles, shared Power Query expressions and TMDL drafts are written into the actual TMDL files. Dry run by default, zip backup and manifest per change, `undo` without deleting. Before, the `Apply-*` scripts only wrote draft files next to the model.

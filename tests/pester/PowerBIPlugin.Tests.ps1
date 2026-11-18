@@ -441,7 +441,7 @@ Describe 'Power BI Desktop plugin' {
         $summary.schema | Should Be 'codex.powerbi.releaseCandidatePack.v1'
         $summary.enterpriseUsps.evidenceGraphStrength | Should Be 'Medium'
         $summary.enterpriseUsps.semanticContractStatus | Should Be 'ContractFailed'
-        $summary.enterpriseUsps.rlsTrustReviewStatus | Should Be 'Blocked'
+        $summary.enterpriseUsps.rlsTrustReviewStatus | Should Be 'NotApplicable'
         Test-Path -LiteralPath (Join-Path $packRoot 'evidence-graph.json') | Should Be $true
         Test-Path -LiteralPath (Join-Path $packRoot 'executive-trust-brief.md') | Should Be $true
         Test-Path -LiteralPath (Join-Path $packRoot 'migration-readiness.json') | Should Be $true

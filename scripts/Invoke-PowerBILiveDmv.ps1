@@ -8,7 +8,11 @@
 
 $ErrorActionPreference = 'Stop'
 
-if ($PSVersionTable.PSEdition -eq 'Core' -and -not $NoFallback) {
+if (-not $IsWindows -and $PSVersionTable.PSEdition -eq 'Core') {
+    throw 'Live access needs Power BI Desktop, which only runs on Windows. Run this script on the Windows computer where Desktop is open (see Run-PowerBILiveReview.cmd), or use the offline review for PBIX/PBIP files.'
+}
+
+if ($PSVersionTable.PSEdition -eq 'Core' -and -not $NoFallback -and (Get-Command powershell.exe -ErrorAction SilentlyContinue)) {
     $argsList = @(
         '-NoProfile',
         '-ExecutionPolicy', 'Bypass',

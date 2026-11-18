@@ -99,18 +99,56 @@ if ($RolesPath -and (Test-Path -LiteralPath $RolesPath)) {
     $signals.Add([pscustomobject]@{ type = 'RolesMatrix'; path = $RolesPath; detail = ('Loaded {0} role matrix entries.' -f @($roles).Count) })
 }
 else {
-    $tmdlFiles = @($files | Where-Object { $_.Extension -eq '.tmdl' })
+    # Real TMDL (Power BI Desktop export):
+    #   role 'Name'
+    #       modelPermission: read
+    #       tablePermission Account = [Account] = "01 Revenue"
+    # The filter can also continue on deeper-indented lines or sit in a ``` block.
+    $tmdlFiles = @($files | Where-Object { $_.Extension -eq '.tmdl' -and $_.FullName -notmatch '[\\/]\.pbip-apply[\\/]' })
     foreach ($file in $tmdlFiles) {
-        $text = Get-Content -Raw -LiteralPath $file.FullName
-        $roleMatches = [regex]::Matches($text, '(?im)^\s*role\s+[''"]?(?<role>[^''"\r\n{]+)[''"]?')
-        $permissionMatches = [regex]::Matches($text, '(?is)(tablePermission|filterExpression|rowFilter)\s*[:=]\s*(?<expr>[^\r\n]+)')
-        foreach ($match in $roleMatches) {
-            $roleName = $match.Groups['role'].Value.Trim()
-            $expr = if ($permissionMatches.Count -gt 0) { $permissionMatches[0].Groups['expr'].Value.Trim() } else { $null }
-            $tableName = if ($file.BaseName) { $file.BaseName } else { 'UnknownTable' }
-            $relative = Get-RelativePath -BasePath $root -TargetPath $file.FullName
-            $roleTests.Add((New-RoleTest -RoleName $roleName -TableName $tableName -FilterExpression $expr -AllowedValues @() -DeniedValues @() -Source 'TMDL' -SourcePath $relative))
-            $signals.Add([pscustomobject]@{ type = 'TMDLRole'; path = $relative; detail = ('Found role signal {0}.' -f $roleName) })
+        $lines = (Get-Content -Raw -LiteralPath $file.FullName) -split "`r?`n"
+        $relative = Get-RelativePath -BasePath $root -TargetPath $file.FullName
+        $currentRole = $null
+        $roleIndent = -1
+        $roleHasPermission = $false
+        for ($i = 0; $i -lt $lines.Count; $i++) {
+            $line = $lines[$i]
+            $expanded = $line -replace "`t", '    '
+            $indent = $expanded.Length - $expanded.TrimStart().Length
+            if ($line -match "^\s*role\s+(?<role>'(?:[^']|'')+'|[^\s=]+)\s*$") {
+                if ($currentRole -and -not $roleHasPermission) {
+                    $roleTests.Add((New-RoleTest -RoleName $currentRole -TableName '(no table permission)' -FilterExpression $null -AllowedValues @() -DeniedValues @() -Source 'TMDL' -SourcePath $relative))
+                }
+                $currentRole = $Matches.role.Trim()
+                if ($currentRole.StartsWith("'")) { $currentRole = $currentRole.Substring(1, $currentRole.Length - 2).Replace("''", "'") }
+                $roleIndent = $indent
+                $roleHasPermission = $false
+                $signals.Add([pscustomobject]@{ type = 'TMDLRole'; path = $relative; detail = ('Found role {0}.' -f $currentRole) })
+                continue
+            }
+            if (-not $currentRole) { continue }
+            if ($line.Trim() -and $indent -le $roleIndent) { $currentRole = $null; continue }
+            if ($line -match "^\s*tablePermission\s+(?<table>'(?:[^']|'')+'|[^\s=]+)\s*=\s*(?<expr>.*)$") {
+                $table = $Matches.table.Trim()
+                if ($table.StartsWith("'")) { $table = $table.Substring(1, $table.Length - 2).Replace("''", "'") }
+                $exprLines = New-Object System.Collections.Generic.List[string]
+                if ($Matches.expr.Trim()) { $exprLines.Add($Matches.expr.Trim()) }
+                for ($j = $i + 1; $j -lt $lines.Count; $j++) {
+                    $next = $lines[$j]
+                    if (-not $next.Trim()) { continue }
+                    $nextExpanded = $next -replace "`t", '    '
+                    if (($nextExpanded.Length - $nextExpanded.TrimStart().Length) -le $indent) { break }
+                    if ($next.Trim() -match '^(annotation\s|[A-Za-z][A-Za-z0-9]*:(\s|$))') { break }
+                    $exprLines.Add($next.Trim())
+                    $i = $j
+                }
+                $expr = (($exprLines -join ' ').Trim().Trim('`').Trim())
+                $roleHasPermission = $true
+                $roleTests.Add((New-RoleTest -RoleName $currentRole -TableName $table -FilterExpression $expr -AllowedValues @() -DeniedValues @() -Source 'TMDL' -SourcePath $relative))
+            }
+        }
+        if ($currentRole -and -not $roleHasPermission) {
+            $roleTests.Add((New-RoleTest -RoleName $currentRole -TableName '(no table permission)' -FilterExpression $null -AllowedValues @() -DeniedValues @() -Source 'TMDL' -SourcePath $relative))
         }
     }
 
@@ -125,7 +163,8 @@ else {
 }
 
 if ($roleTests.Count -eq 0) {
-    $roleTests.Add((New-RoleTest -RoleName 'RLS role draft' -TableName 'CandidateTable' -FilterExpression $null -AllowedValues @() -DeniedValues @() -Source 'DraftFallback' -SourcePath $root))
+    # No roles in the model: nothing can leak through RLS. Record it instead of inventing a role.
+    $signals.Add([pscustomobject]@{ type = 'NoRoles'; path = $root; detail = 'No RLS roles defined in the model. If data must be restricted per user, define roles first.' })
 }
 
 $highRisk = @($roleTests | Where-Object { $_.leakageRisk -eq 'High' }).Count

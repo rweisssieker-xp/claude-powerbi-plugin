@@ -5,6 +5,10 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+if ($PSVersionTable.PSEdition -eq 'Core' -and -not $IsWindows) {
+    throw 'Power BI Desktop External Tools exist only on Windows. Run this script on the Windows computer with Power BI Desktop (as administrator).'
+}
+
 $installDirectory = Join-Path $env:CommonProgramFiles 'Microsoft Shared\Power BI Desktop\External Tools'
 $fileName = ($Name -replace '[\\/:*?"<>|]', '').Trim()
 if (-not $fileName) { $fileName = 'Claude Power BI Workbench' }

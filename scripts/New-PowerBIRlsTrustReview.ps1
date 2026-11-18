@@ -31,13 +31,13 @@ $result = [pscustomobject]@{
     generated = (Get-Date).ToString('s')
     roleTestCount = $rls.roleTestCount
     highRiskCount = $high
-    status = if ($high -gt 0) { 'Blocked' } elseif (@($findings).Count -gt 0) { 'Warn' } else { 'Passed' }
+    status = if (@($rls.roleTests).Count -eq 0) { 'NotApplicable' } elseif ($high -gt 0) { 'Blocked' } elseif (@($findings).Count -gt 0) { 'Warn' } else { 'Passed' }
     leakageReview = $rls
     findings = @($findings)
 }
 
 if ($Json) { $text = $result | ConvertTo-Json -Depth 10; if ($OutputPath) { Set-Content -LiteralPath $OutputPath -Value $text -Encoding UTF8 }; $text; return }
-$md = @('# Power BI RLS Trust Review', '', ('Status: **{0}**' -f $result.status), '') + @($result.findings | ForEach-Object { '- [{0}] {1}: {2}' -f $_.severity, $_.role, $_.message })
+$md = @('# Power BI RLS Trust Review', '', ('Status: **{0}**' -f $result.status), '') + $(if ($result.status -eq 'NotApplicable') { @('No RLS roles are defined in this model. If users may only see part of the data, define roles and run this review again.') } else { @() }) + @($result.findings | ForEach-Object { '- [{0}] {1}: {2}' -f $_.severity, $_.role, $_.message })
 $content = ($md -join [Environment]::NewLine) + [Environment]::NewLine
 if ($OutputPath) { Set-Content -LiteralPath $OutputPath -Value $content -Encoding UTF8 }
 $content

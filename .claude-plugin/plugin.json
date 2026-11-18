@@ -1,6 +1,6 @@
 {
   "name": "pbi-workbench",
-  "version": "3.3.0",
+  "version": "3.4.0",
   "description": "Power BI workbench for Claude: review PBIX and PBIP models, KPI trust and release gates, safe PBIP/TMDL changes with undo, read-only live review of Power BI Desktop, forecasting, and Fabric operations.",
   "author": {
     "name": "Reiner Weisssieker"

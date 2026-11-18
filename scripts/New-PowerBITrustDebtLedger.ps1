@@ -24,6 +24,7 @@ function Read-OptionalJsonFiles {
     $pluginRoot = Split-Path -Parent $scriptRoot
     $candidateFiles = New-Object System.Collections.Generic.List[string]
     foreach ($candidate in @(
+        (Join-Path $(if ($env:LOCALAPPDATA) { Join-Path $env:LOCALAPPDATA 'pbi-workbench' } else { Join-Path $HOME '.local/share/pbi-workbench' }) 'review-memory.json'),
         (Join-Path $pluginRoot 'rules/powerbi-review-memory.json'),
         (Join-Path $RootPath 'powerbi-review-memory.json'),
         (Join-Path $RootPath 'powerbi-ai-change-journal.json')

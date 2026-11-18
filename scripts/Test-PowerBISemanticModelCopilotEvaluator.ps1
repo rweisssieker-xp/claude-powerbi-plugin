@@ -9,5 +9,5 @@ $questions = foreach ($metric in @($catalog.metrics)) {
 }
 $result=[pscustomobject]@{ schema='codex.powerbi.semanticModelCopilotEvaluator.v1'; generated=(Get-Date).ToString('s'); copilotScore=$readiness.score; questionCount=@($questions).Count; ambiguousQuestionCount=@($questions|Where-Object ambiguityRisk).Count; questions=@($questions) }
 if($Json){$text=$result|ConvertTo-Json -Depth 8; if($OutputPath){Set-Content -LiteralPath $OutputPath -Value $text -Encoding UTF8}; $text; return}
-$md=@('# Power BI Semantic Model Copilot Evaluator','',"Copilot score: $($result.copilotScore)","Questions: $($result.questionCount)","Ambiguous: $($result.ambiguousQuestionCount)",'')+@($result.questions|ForEach-Object{"- $($_.question) -> `$($_.targetMeasure)`; ambiguous=$($_.ambiguityRisk)"})
+$md=@('# Power BI Semantic Model Copilot Evaluator','',"Copilot score: $($result.copilotScore)","Questions: $($result.questionCount)","Ambiguous: $($result.ambiguousQuestionCount)",'')+@($result.questions|ForEach-Object{"- $($_.question) -> ``$($_.targetMeasure)``; ambiguous=$($_.ambiguityRisk)"})
 $content=($md -join [Environment]::NewLine)+[Environment]::NewLine; if($OutputPath){Set-Content -LiteralPath $OutputPath -Value $content -Encoding UTF8}; $content

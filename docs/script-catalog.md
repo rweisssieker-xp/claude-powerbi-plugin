@@ -231,7 +231,7 @@ Creates read-only AI sales forecast from open Desktop model or saved extract. Su
 - `New-PowerBIRlsRoleDraft.ps1`: drafts RLS role TMDL.
 - `New-PowerBIReportPageDraft.ps1`: drafts a report page.
 - `New-PowerBIVisualDraft.ps1`: drafts a visual definition.
-- `Add-PowerBIPBIPReportPage.ps1`: writes a PBIP report page when `-Apply` is used.
+- `Add-PowerBIPBIPReportPage.ps1`: adds a PBIR report page with one card visual per measure when `-Apply` is used (zip backup, undo).
 - `Apply-PowerBIPBIPMeasureDraft.ps1`: inserts or replaces a measure in the table's TMDL file when `-Apply` is used (zip backup, manifest).
 - `Apply-PowerBIPBIPCalculatedColumnDraft.ps1`: inserts or replaces a calculated column when `-Apply` is used.
 - `Apply-PowerBIPBIPPowerQueryDraft.ps1`: writes a shared Power Query expression to `expressions.tmdl` when `-Apply` is used.
