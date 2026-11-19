@@ -70,4 +70,5 @@ The engine was tested on a PBIP exported from Power BI Desktop 2.159 (Store edit
 - a calculated column, a calculated table, a relationship and an RLS role;
 - every object loaded in Desktop and returned the expected values live;
 - an undo restored the original files byte for byte;
-- a report page added with `page` opened in Desktop with its card visuals showing the expected values.
+- a report page added with `page` opened in Desktop with its card visuals showing the expected values;
+- a calculation group added with `calcgroup` loaded in Desktop and returned the expected values for each item in a live DAX query.

@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.5.1 - 2026-11-19
+
+- **Calculation groups:** Power BI Desktop rejected calculation items with a format string ("Invalid indentation" at `ordinal`), because TMDL expects properties before child objects. `ordinal` is now written before `formatStringDefinition` (engine and draft). Verified in Power BI Desktop 2.159: the project opens, the calculation group is listed, and a live DAX query returns the expected values for every item (base value, doubled value, share of total = 100 %).
+
 ## 3.5.0 - 2026-11-18
 
 - **Calculation groups:** `pbi_apply.py calcgroup` and `Apply-PowerBIPBIPCalculationGroup.ps1` write a calculation group (items, name column sorted by a hidden Ordinal column, calculationGroup partition) and set `discourageImplicitMeasures`. `New-PowerBICalculationGroupDraft.ps1` produced invalid TMDL with raw PowerShell objects; it now writes the time-intelligence set (Current, Prior Year, YoY, YoY %, YTD) as valid TMDL, identical to the engine output.

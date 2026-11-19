@@ -315,9 +315,11 @@ def cmd_calcgroup(p: Project, a) -> dict:
     for i, (name, expr) in enumerate(items):
         block.append("")
         block += object_with_expression("calculationItem", name, expr, "\t\t")
+        # TMDL: properties (ordinal) before child objects (formatStringDefinition), or Desktop
+        # rejects the file with "Invalid indentation".
+        block.append(f"\t\t\tordinal: {i}")
         if name in formats:
             block.append(f"\t\t\tformatStringDefinition = {formats[name]}")
-        block.append(f"\t\t\tordinal: {i}")
     block += ["", f"\tcolumn {q(column)}", "\t\tdataType: string", "\t\tsummarizeBy: none", "\t\tsourceColumn: Name",
               "\t\tsortByColumn: Ordinal", "", "\t\tannotation SummarizationSetBy = Automatic",
               "", "\tcolumn Ordinal", "\t\tdataType: int64", "\t\tformatString: 0", "\t\tisHidden", "\t\tsummarizeBy: sum",

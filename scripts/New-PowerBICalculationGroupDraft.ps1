@@ -31,8 +31,9 @@ $ordinal = 0
 foreach ($item in $items) {
     $lines.Add('')
     $lines.Add("`t`tcalculationItem $(ConvertTo-TmdlName $item.name) = $($item.expression)")
-    if ($item.formatStringExpression) { $lines.Add("`t`t`tformatStringDefinition = $($item.formatStringExpression)") }
+    # TMDL: properties (ordinal) before child objects (formatStringDefinition).
     $lines.Add("`t`t`tordinal: $ordinal")
+    if ($item.formatStringExpression) { $lines.Add("`t`t`tformatStringDefinition = $($item.formatStringExpression)") }
     $ordinal++
 }
 foreach ($l in @('', "`tcolumn $(ConvertTo-TmdlName $ColumnName)", "`t`tdataType: string", "`t`tsummarizeBy: none", "`t`tsourceColumn: Name",

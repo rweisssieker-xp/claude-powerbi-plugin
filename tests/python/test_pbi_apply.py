@@ -172,7 +172,8 @@ class ApplyEngine(unittest.TestCase):
         text = (self.defn / "tables" / "Time Intelligence.tmdl").read_text(encoding="utf-8")
         self.assertIn("\tcalculationGroup\n\t\tprecedence: 10", text)
         self.assertIn("\t\tcalculationItem 'Prior Year' = CALCULATE(", text)
-        self.assertIn("\t\t\tformatStringDefinition = \"0.0%\"\n\t\t\tordinal: 2", text)
+        # properties before child objects: Power BI Desktop rejects ordinal after formatStringDefinition
+        self.assertIn("\t\t\tordinal: 2\n\t\t\tformatStringDefinition = \"0.0%\"", text)
         self.assertIn("\tpartition 'Time Intelligence' = calculationGroup", text)
         model = (self.defn / "model.tmdl").read_text(encoding="utf-8")
         self.assertIn("\tdiscourageImplicitMeasures", model)
